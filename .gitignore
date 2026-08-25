@@ -42,3 +42,24 @@ AGENT_OPERATING_SYSTEM.md
 AGENT_OPERATING_SYSTEM.md.txt
 # session scaffolding
 run_after_retrain.sh
+
+# ---- pre-existing scripts not part of this work ----
+# superseded, or broken (load the 85 GB CSVs / the pre-fix checkpoint).
+# still present locally; kept out of the repo deliberately.
+analyze_data.py
+data_loader.py
+download_additional_data.py
+download_siena_annotations.py
+download_siena.ps1
+evaluate.py
+inference.py
+main.py
+optimize_sensitivity.py
+optimize_threshold.py
+preprocess_data.py
+process_siena_data.py
+quick_threshold_analysis.py
+train_improved.py
+train_streaming.py
+trainer.py
+cv_results/cv_results_2026012*.json
