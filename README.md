@@ -1,7 +1,8 @@
-# EEG-Conformer: Patient-Independent Seizure Detection
+# Patient-Independent Seizure Detection on CHB-MIT
 
-Seizure detection on [CHB-MIT](https://physionet.org/content/chbmit/1.0.0/), evaluated
-patient-independently at the event level.
+Event-level seizure detection on the [CHB-MIT Scalp EEG Database](https://physionet.org/content/chbmit/1.0.0/),
+with every split by patient and ordered in time. Two models are compared: a 121k-parameter
+EEG-Conformer trained from scratch, and CBraMod, a pretrained foundation model.
 
 **83% of seizures caught, at 4.4 false alarms per hour.** Measured on 170 h held-out,
 24 patients, 166 seizures. Patient-level 3-fold CV: AUC 0.7795 +/- 0.0168.
