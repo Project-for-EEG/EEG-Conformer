@@ -322,9 +322,9 @@ li::marker  {
   <header>
     <p class="eyebrow">Project report</p>
     <h1>Patient-independent seizure detection on CHB-MIT</h1>
-    <p class="standfirst">A model that detected nothing became one that catches most seizures. The label bug that caused it, the nine things that didn't help, and what the numbers honestly are.</p>
+    <p class="standfirst">A model that detected nothing became one that catches most seizures. The label bug that caused it, the eight things that didn't help, and what the numbers honestly are.</p>
     <p class="meta">
-      <span>24 patients | 396,663 segments | 5,408 seizure (1.363%)</span>
+      <span>24 patients | 396,663 windows over 220 h | 5,408 seizure (1.363%)</span>
       <span>EEG-Conformer, 121k parameters</span>
     </p>
   </header>
@@ -365,7 +365,7 @@ li::marker  {
   </section>
 
   <section>
-    <h2>Ten interventions, three that helped</h2>
+    <h2>Eleven interventions, three that helped</h2>
     <div class="marker-key">
       <span><span class="mk mk-yes"></span>improved the result</span>
       <span><span class="mk mk-null"></span>no measurable effect</span>
@@ -387,6 +387,7 @@ li::marker  {
           <tr><td><span class="mk mk-null"></span>Training class prior (12% / 3.6% / 1.4%)</td><td class="effect">none across an 8.6x range</td></tr>
           <tr><td><span class="mk mk-bad"></span>2.8x model capacity</td><td class="effect">AUC 0.79 to  0.76 (overfitting)</td></tr>
           <tr><td><span class="mk mk-bad"></span>Rolling threshold recalibration</td><td class="effect">worse on both sensitivity and false alarms</td></tr>
+          <tr><td><span class="mk mk-null"></span>Pretrained foundation model (CBraMod)</td><td class="effect">+0.001 paired, i.e. nothing</td></tr>
         </tbody>
       </table>
     </div>
@@ -394,6 +395,37 @@ li::marker  {
     <div class="note">
       <p><strong>On the imbalance.</strong> It was never the real problem. The data appeared six times more imbalanced than it was, because the bug had erased most positive labels. The true rate is 1.363%, which is simply what scalp EEG is. Every method aimed at rebalancing it, synthetic data included, changed nothing.</p>
     </div>
+  </section>
+
+  <section>
+    <h2>A pretrained foundation model does not help</h2>
+    <p>The architecture was the one variable never tested. CBraMod (ICLR 2025, 4.9M
+    parameters, pretrained on 9,000 hours of hospital EEG) was fine-tuned and compared
+    against the 121k-parameter model trained from scratch. The comparison is
+    <strong>paired</strong>: identical folds, patients, seed, windows and labels, with
+    only the architecture differing.</p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>fold</th><th class="num">EEG-Conformer</th><th class="num">CBraMod</th><th class="num">delta</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td class="num">0.8353</td><td class="num">0.8682</td><td class="num">+0.0329</td></tr>
+          <tr><td>2</td><td class="num">0.7630</td><td class="num">0.7354</td><td class="num">-0.0276</td></tr>
+          <tr><td>3</td><td class="num">0.7939</td><td class="num">0.7919</td><td class="num">-0.0020</td></tr>
+          <tr class="is-yes"><td><strong>mean</strong></td><td class="num">0.7974 +/- 0.0296</td><td class="num">0.7985 +/- 0.0544</td><td class="num">+0.0011</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A mean paired difference of <strong>+0.001</strong>. The folds disagree in both
+    directions, and the spread of differences (0.025) is larger than the difference
+    itself, matching the same-fold noise measured independently. CBraMod was also the
+    less stable of the two.</p>
+    <p><strong>40x the parameters and 9,000 hours of pretraining bought nothing.</strong>
+    That is consistent with independent benchmarks, which find these models frequently
+    match their own random initialisation on seizure tasks. Two patients (CHB03, CHB05)
+    are excluded from this comparison because their local copies predate the raw
+    recordings and do not match PhysioNet, leaving 22.</p>
   </section>
 
   <section>
