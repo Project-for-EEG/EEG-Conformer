@@ -66,3 +66,9 @@ cv_results/cv_results_2026012*.json
 comparison_done.txt
 lopo_timing.log
 dl_last.log
+
+# one-off analysis scripts and an unused harness -- kept locally, out of the repo
+train_lopo.py
+compare_operating_points.py
+compare_finetune.py
+sweep_operating_points.py
