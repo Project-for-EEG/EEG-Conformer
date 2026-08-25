@@ -72,3 +72,5 @@ train_lopo.py
 compare_operating_points.py
 compare_finetune.py
 sweep_operating_points.py
+cv_results/patient_cv_results_20260727_2107*.json
+cv_results/patient_cv_results_20260727_2301*.json
