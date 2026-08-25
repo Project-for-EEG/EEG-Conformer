@@ -63,3 +63,6 @@ train_improved.py
 train_streaming.py
 trainer.py
 cv_results/cv_results_2026012*.json
+comparison_done.txt
+lopo_timing.log
+dl_last.log

@@ -308,7 +308,8 @@ def run_patient_level_cv(
     target_recall: float = 0.90,
     epochs: int = 15,
     max_patients: int = None,
-    max_segments: int = 10000
+    max_segments: int = 10000,
+    exclude: list = None
 ):
     """Run patient-level K-fold cross-validation (memory efficient)"""
     
@@ -321,6 +322,11 @@ def run_patient_level_cv(
     
     # Get all patients
     all_patients = get_patient_list(data_dir)
+    if exclude:
+        dropped = [p for p in all_patients if p in exclude]
+        all_patients = [p for p in all_patients if p not in exclude]
+        if dropped:
+            print(f"excluding {', '.join(dropped)}")
     print(f"\nFound {len(all_patients)} patients total")
     
     # Limit patients if specified
@@ -588,6 +594,10 @@ def main():
                              "'none' = train on the natural distribution.")
     parser.add_argument('--target-recall', type=float, default=0.90, help='Target recall')
     parser.add_argument('--max-patients', type=int, default=None, help='Limit number of patients')
+    parser.add_argument('--exclude', nargs='*', default=None,
+                        help='patient ids to drop entirely, e.g. CHB03 CHB05 '
+                             'whose local data predates raw_data/ and does not '
+                             'match the PhysioNet recordings')
     parser.add_argument('--max-segments', type=int, default=10000,
                         help='Max segments loaded per patient. Seizure segments are '
                              'always kept; only non-seizure ones are subsampled. '
@@ -623,7 +633,8 @@ def main():
         target_recall=args.target_recall,
         epochs=args.epochs,
         max_patients=args.max_patients,
-        max_segments=args.max_segments
+        max_segments=args.max_segments,
+        exclude=args.exclude
     )
     
     print("\n" + "="*60)

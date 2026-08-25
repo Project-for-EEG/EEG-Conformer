@@ -31,4 +31,4 @@ POOLED over 170 h:
   SzCORE-style  : 140/168 = 0.833 sensitivity at 4.37 FA/h  (104.8 FA/day)
 
 2025 challenge winner on private data, same ruleset: 0.37 sensitivity at 1.34 FA/day
-caveat: our numbers allow 1-seizure-per-patient personalisation and CHB01/CHB21 are same-subject-tainted until the leak-free retrain lands
+caveat: 1-seizure-per-patient personalisation is part of the method (5 of 24 patients). Splits are leak-free: chb01 and chb21 are the same child and are kept in one fold.
