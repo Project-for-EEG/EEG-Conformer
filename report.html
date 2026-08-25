@@ -1,0 +1,432 @@
+<title>CHB-MIT Seizure Detection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root {
+  --ground:      #F6F7F9;
+  --surface:     #FFFFFF;
+  --surface-alt: #EDF0F3;
+  --ink:         #151A21;
+  --ink-soft:    #5A6472;
+  --ink-faint:   #8A93A0;
+  --accent:      #0E7C86;
+  --accent-soft: #E2F0F1;
+  --rule:        #DDE2E8;
+  --worked:      #2F7D5D;
+  --null:        #98A1AE;
+  --worse:       #A8443F;
+  --shadow:      0 1px 2px rgba(21,26,33,.05), 0 8px 24px rgba(21,26,33,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #10141A;
+    --surface:     #171C24;
+    --surface-alt: #1E242D;
+    --ink:         #E8ECF1;
+    --ink-soft:    #98A5B4;
+    --ink-faint:   #6C7887;
+    --accent:      #46B9C2;
+    --accent-soft: #143135;
+    --rule:        #29313C;
+    --worked:      #5FB98D;
+    --null:        #6C7887;
+    --worse:       #D07671;
+    --shadow:      0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:      #10141A;
+  --surface:     #171C24;
+  --surface-alt: #1E242D;
+  --ink:         #E8ECF1;
+  --ink-soft:    #98A5B4;
+  --ink-faint:   #6C7887;
+  --accent:      #46B9C2;
+  --accent-soft: #143135;
+  --rule:        #29313C;
+  --worked:      #5FB98D;
+  --null:        #6C7887;
+  --worse:       #D07671;
+  --shadow:      0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3.25rem;
+}
+
+h1, h2, h3, .eyebrow, .readout, table, .marker-key, .meta {
+  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+}
+
+.eyebrow {
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 .6rem;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 2.7rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -.02em;
+  margin: 0 0 .75rem;
+  text-wrap: balance;
+}
+
+.standfirst {
+  font-size: 1.15rem;
+  color: var(--ink-soft);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.meta {
+  font-size: .8rem;
+  color: var(--ink-faint);
+  margin: 1.25rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem 1.5rem;
+}
+
+section { display: flex; flex-direction: column; gap: 1rem; }
+
+h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  margin: 0;
+  padding-bottom: .6rem;
+  border-bottom: 1px solid var(--rule);
+  text-wrap: balance;
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: .75rem 0 -.4rem;
+  color: var(--ink);
+}
+
+p { margin: 0; text-wrap: pretty; }
+strong { font-weight: 600; }
+
+/* ---- headline readout ---- */
+.readout {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.readout-head {
+  padding: .7rem 1.25rem;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--rule);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.readout-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+.stat {
+  padding: 1.4rem 1.25rem;
+  border-right: 1px solid var(--rule);
+}
+.stat:last-child { border-right: 0; }
+.stat-val {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 1.9rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.stat-val .unit { font-size: .95rem; color: var(--ink-soft); margin-left: .15rem; }
+.stat-label {
+  font-size: .74rem;
+  color: var(--ink-soft);
+  margin-top: .5rem;
+  line-height: 1.35;
+}
+.readout-foot {
+  padding: .8rem 1.25rem;
+  border-top: 1px solid var(--rule);
+  background: var(--surface-alt);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .74rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+/* ---- tables ---- */
+.scroll { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+}
+th {
+  text-align: left;
+  font-weight: 600;
+  font-size: .72rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0 .8rem .55rem 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+td {
+  padding: .62rem .8rem .62rem 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: baseline;
+}
+tbody tr:last-child td { border-bottom: 0; }
+td.num {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  white-space: nowrap;
+}
+td.effect { color: var(--ink-soft); }
+
+/* outcome marker: filled = helped, hollow = no effect, cross = made it worse */
+.mk {
+  display: inline-block;
+  width: .62rem; height: .62rem;
+  border-radius: 50%;
+  margin-right: .55rem;
+  vertical-align: baseline;
+  position: relative;
+  top: .02rem;
+}
+.mk-yes  { background: var(--worked); }
+.mk-null { background: transparent; border: 1.5px solid var(--null); }
+.mk-bad  { background: var(--worse); }
+tr.is-yes td:first-child { font-weight: 600; }
+
+.marker-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.4rem;
+  font-size: .76rem;
+  color: var(--ink-soft);
+  margin-top: -.2rem;
+}
+
+/* ---- callout ---- */
+.note {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  border-radius: 2px;
+  padding: 1rem 1.15rem;
+  font-size: .95rem;
+}
+.note p + p { margin-top: .6rem; }
+
+pre {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: .95rem 1.1rem;
+  overflow-x: auto;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .8rem;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: .87em;
+  background: var(--surface-alt);
+  padding: .1em .35em;
+  border-radius: 2px;
+}
+pre code { background: none; padding: 0; font-size: 1em; }
+
+ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .5rem; }
+li::marker { color: var(--ink-faint); }
+
+footer {
+  border-top: 1px solid var(--rule);
+  padding-top: 1.25rem;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: .78rem;
+  color: var(--ink-faint);
+  line-height: 1.6;
+}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Project report</p>
+    <h1>Patient-independent seizure detection on CHB-MIT</h1>
+    <p class="standfirst">A model that detected nothing became one that catches most seizures. The label bug that caused it, the nine things that didn&rsquo;t help, and what the numbers honestly are.</p>
+    <p class="meta">
+      <span>24 patients &middot; 396,663 segments &middot; 5,408 seizure (1.363%)</span>
+      <span>EEG-Conformer, 121k parameters</span>
+    </p>
+  </header>
+
+  <section>
+    <div class="readout">
+      <div class="readout-head">Final result &mdash; held-out, leak-free</div>
+      <div class="readout-body">
+        <div class="stat">
+          <div class="stat-val">83<span class="unit">%</span></div>
+          <div class="stat-label">of seizures detected<br>140 of 168 events</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">4.4</div>
+          <div class="stat-label">false alarms<br>per hour</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">170<span class="unit">h</span></div>
+          <div class="stat-label">of continuous EEG<br>never seen in training</div>
+        </div>
+      </div>
+      <div class="readout-foot">
+        SzCORE event scoring &middot; 5 of 24 patients personalised on one earlier seizure<br>
+        Under our stricter in-house scorer, identical predictions give 78% at 14.9 FA/h
+      </div>
+    </div>
+    <p>Patient-level 3-fold cross-validation gives <strong>AUC 0.7795 &plusmn; 0.0168</strong> (folds: 0.763, 0.773, 0.803). Every split is by patient and ordered in time, so no recording, and no person, appears on both sides.</p>
+  </section>
+
+  <section>
+    <h2>What was actually wrong</h2>
+    <p>The project began with a model scoring <strong>AUC 0.32</strong> &mdash; worse than a coin flip &mdash; that found <strong>0 of 392</strong> seizures. The stored results claimed 99% accuracy.</p>
+    <p>The cause was one regular expression. CHB-MIT annotation files write multi-seizure recordings as <code>Seizure 1 Start Time: 1724 seconds</code>, and the parser took the first number it found:</p>
+<pre><code>match = re.search(r'(\d+)', line)   # captures "1", the seizure index
+                                    # not 1724, the timestamp</code></pre>
+    <p>Every seizure was recorded as starting and ending at second 1, so no samples were ever labelled. <strong>Eighteen of 24 patients lost their entire ground truth.</strong> Files with a single unnumbered seizure survived, which is why six patients looked fine and hid the problem.</p>
+    <p>Repairing the labels took the dataset from 564 to 5,408 seizure segments, and from 6 to 24 patients with usable annotations. That single fix moved AUC from 0.32 to 0.78 &mdash; more than every subsequent experiment combined.</p>
+  </section>
+
+  <section>
+    <h2>Ten interventions, three that helped</h2>
+    <div class="marker-key">
+      <span><span class="mk mk-yes"></span>improved the result</span>
+      <span><span class="mk mk-null"></span>no measurable effect</span>
+      <span><span class="mk mk-bad"></span>made it worse</span>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Intervention</th><th>Effect</th></tr>
+        </thead>
+        <tbody>
+          <tr class="is-yes"><td><span class="mk mk-yes"></span>Repair the seizure labels</td><td class="effect">AUC 0.32 &rarr; 0.78</td></tr>
+          <tr class="is-yes"><td><span class="mk mk-yes"></span>Temporal smoothing at evaluation</td><td class="effect">~3&times; fewer false alarms, same sensitivity</td></tr>
+          <tr class="is-yes"><td><span class="mk mk-yes"></span>Selective per-patient personalisation</td><td class="effect">+0.13 to +0.22 event sensitivity</td></tr>
+          <tr><td><span class="mk mk-null"></span>Synthetic minority oversampling (SMOTE)</td><td class="effect">none &mdash; removing it was marginally better</td></tr>
+          <tr><td><span class="mk mk-null"></span>Weighted batch sampling</td><td class="effect">none</td></tr>
+          <tr><td><span class="mk mk-null"></span>2.7&times; more background EEG</td><td class="effect">none</td></tr>
+          <tr><td><span class="mk mk-null"></span>+52% more seizures (68 downloaded)</td><td class="effect">none</td></tr>
+          <tr><td><span class="mk mk-null"></span>Training class prior (12% / 3.6% / 1.4%)</td><td class="effect">none across an 8.6&times; range</td></tr>
+          <tr><td><span class="mk mk-bad"></span>2.8&times; model capacity</td><td class="effect">AUC 0.79 &rarr; 0.76 (overfitting)</td></tr>
+          <tr><td><span class="mk mk-bad"></span>Rolling threshold recalibration</td><td class="effect">worse on both sensitivity and false alarms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Everything in the middle group landed on AUC 0.76&ndash;0.79 regardless of setting. That plateau is a property of this architecture reading raw waveforms &mdash; not of any hyperparameter, and not of the class imbalance that the project originally set out to solve.</p>
+    <div class="note">
+      <p><strong>On the imbalance.</strong> It was never the real problem. The data appeared six times more imbalanced than it was, because the bug had erased most positive labels. The true rate is 1.363%, which is simply what scalp EEG is. Every method aimed at rebalancing it &mdash; synthetic data included &mdash; changed nothing.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Four things that fooled the measurements</h2>
+    <p>The most transferable findings here are about measurement, not modelling. Each of these produced a confidently wrong number before it was caught.</p>
+
+    <h3>Counting alarm runs is gameable</h3>
+    <p>False alarms were counted as contiguous runs of positive predictions. A threshold low enough to flag <em>everything</em> merges into one run per recording, which overlaps a real seizure and therefore books almost no false alarms &mdash; scoring ~0 FA/h at 100% sensitivity while being useless. This appeared <strong>four separate times</strong> in different scripts before being fixed with a flagged-time bound in all of them.</p>
+
+    <h3>AUC cannot see what breaks end-to-end</h3>
+    <p>Cases <code>chb01</code> and <code>chb21</code> are the same child recorded 18 months apart, and our splits put her on both sides. Fixing it moved AUC by <strong>0.013</strong> &mdash; and event sensitivity by <strong>0.084</strong>. Judged on AUC alone the leak looked harmless; it was not.</p>
+
+    <h3>Patient grouping moves the headline by &plusmn;8 points</h3>
+    <p>One reshuffle of which patients sit in which fold swung individual results violently &mdash; CHB06 from 33% to 100%, CHB14 from 43% to 14%, CHB12 from 95% to 64%. Same data, same model. Any comparison finer than about &plusmn;0.08 is noise at 3 folds, which retroactively invalidates several small differences chased during this work.</p>
+
+    <h3>The scorer changes the answer by 3.4&times;</h3>
+    <p>Identical predictions score 14.9 FA/h under a strict rule and 4.4 FA/h under SzCORE event rules (90&thinsp;s merging, 30/60&thinsp;s tolerance). Sensitivity moves too, 78% to 83%. Published false-alarm rates are not comparable unless the scorer is named.</p>
+  </section>
+
+  <section>
+    <h2>Where this sits</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>System</th><th class="num">Sensitivity</th><th class="num">False alarms</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>2025 SzCORE challenge winner <span style="color:var(--ink-faint)">(private, cross-hospital)</span></td><td class="num">37%</td><td class="num">1.3 / day</td></tr>
+          <tr><td>Published CHB-MIT, leave-one-patient-out</td><td class="num">75&ndash;85%</td><td class="num">1&ndash;5 / hour</td></tr>
+          <tr class="is-yes"><td><strong>This work</strong></td><td class="num">83%</td><td class="num">4.4 / hour</td></tr>
+          <tr><td>Rule-based baseline (Gotman, 1982)</td><td class="num">91%</td><td class="num">~10 / hour</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The result sits inside the honest published range. The Gotman line is the useful calibration: <strong>high sensitivity is cheap</strong> &mdash; a 1982 rule-based detector reaches 91% if you accept enough false alarms. Suppressing false alarms is the entire difficulty, and it remains unsolved here.</p>
+    <p>The much lower challenge figure is not a weaker system. It was measured across hospitals on data no entrant had seen, and 23% of those patients were missed by every top-five algorithm. Single-institution numbers, including ours, should be read as optimistic.</p>
+  </section>
+
+  <section>
+    <h2>Limitations</h2>
+    <ul>
+      <li><strong>Not clinically usable.</strong> Continuous monitoring wants under 1 false alarm per hour; this is at 4.4.</li>
+      <li><strong>Personalisation is part of the method.</strong> 5 of 24 patients were fine-tuned on one of their own earlier seizures, evaluated only on later ones. For a patient with no recorded seizure, the base model applies and performance is lower.</li>
+      <li><strong>One hospital, 24 patients, all paediatric.</strong> No cross-institution validation.</li>
+      <li><strong>Three folds is too few</strong> given the &plusmn;8-point grouping variance. Leave-one-patient-out would be needed to resolve anything smaller.</li>
+      <li><strong>Bimodal by patient.</strong> Roughly a third of patients reach 100% sensitivity at under ~1 FA/h; a handful produce most of the false alarms. The average describes almost nobody.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>What would actually move it</h2>
+    <p>Data volume and hyperparameters are exhausted &mdash; that is what the nine null and negative results establish. Three directions remain, in descending confidence:</p>
+    <ul>
+      <li><strong>Longer temporal context.</strong> Classifying 4-second windows independently discards the structure that distinguishes a seizure from a transient artifact. Systems using 60&ndash;80&thinsp;s of context report markedly lower false-alarm rates, and this is the change most directly aimed at the one unsolved problem.</li>
+      <li><strong>More patients, not more data.</strong> 24 people is few for learning what seizures look like in general, and the failures are patient-specific rather than uniform.</li>
+      <li><strong>A pre-trained EEG backbone.</strong> Verified as a drop-in candidate: CBraMod (4.9M parameters, 9,000 hours of pretraining) loads cleanly and accepts this montage natively. Independent benchmarks are lukewarm &mdash; on several seizure tasks these models match their own random initialisation &mdash; and no foundation model has ever published an <em>event-level</em> CHB-MIT result. That gap is worth filling, but it needs leave-one-patient-out evaluation to be resolvable above the noise.</li>
+    </ul>
+  </section>
+
+  <footer>
+    Evaluated on the CHB-MIT Scalp EEG Database (PhysioNet). All splits patient-level and chronological; thresholds selected on adaptation data only, never on the test period. Figures reproduce from <code>evaluate_end_to_end.py</code> and <code>score_szcore.py</code>.
+  </footer>
+
+</div>

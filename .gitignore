@@ -1,0 +1,44 @@
+# ---- data (205 GB, from PhysioNet -- never commit) ----
+EEG_Data/
+EEG_Data_Siena/
+preprocessed_data/
+raw_data/
+additional_data/
+memmap/
+*.edf
+*.npz
+
+# ---- third-party model weights and source ----
+# CBraMod: fetch with
+#   huggingface_hub.hf_hub_download("weighting666/CBraMod", "pretrained_weights.pth")
+# source: https://github.com/wjq-learning/CBraMod  (MIT)
+cbramod_ckpt/
+cbramod_src/
+
+# ---- run artifacts ----
+checkpoints/
+logs/
+evaluation_results/
+*.log
+*.pt
+predictions.csv
+
+# large historical run logs
+training_log.txt
+training_12_patients_log.txt
+training_all_patients_log.txt
+preprocess_log.txt
+memtest.txt
+ablation_done.txt
+
+# ---- python ----
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# personal AI prompt file, not project code
+AGENT_OPERATING_SYSTEM.md
+AGENT_OPERATING_SYSTEM.md.txt
+# session scaffolding
+run_after_retrain.sh
