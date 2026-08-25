@@ -1,21 +1,75 @@
 # Patient-Independent Seizure Detection on CHB-MIT
 
-Event-level seizure detection on the [CHB-MIT Scalp EEG Database](https://physionet.org/content/chbmit/1.0.0/),
-with every split by patient and ordered in time. Two models are compared: a 121k-parameter
-EEG-Conformer trained from scratch, and CBraMod, a pretrained foundation model.
+Detecting epileptic seizures from EEG, tested only on patients the model has never seen.
 
-**83% of seizures caught, at 4.4 false alarms per hour.** Measured on 170 h held-out,
-24 patients, 166 seizures. Patient-level 3-fold CV: AUC 0.7795 +/- 0.0168.
+**Catches 83% of seizures, at 4.4 false alarms per hour.**
+Measured on 170 hours of held-out recording: 24 patients, 166 seizures.
 
-The dataset is 396,663 windows of 4 s over 220 h of EEG, of which **5,408 are seizure:
-1.363%**, or about 180 minutes of seizure in total. Per patient it ranges from 0.157%
-(CHB06) to 5.081% (CHB08).
+Published work on this dataset reaches 75-85% at 1-5 false alarms/hour, so this sits in
+the normal range. It is **not clinically usable**, which needs under 1 per hour.
 
-Scored with [SzCORE](https://epilepsybenchmarks.com) event rules; a stricter scorer gives
-78% at 14.9 FA/h, so always name the scorer. Comparable published work reaches 75-85% at
-1-5 FA/h. Not clinically usable, which needs under 1 FA/hour.
+The dataset is 220 hours of EEG cut into 396,663 four-second windows. Only **1.363% are
+seizure** (about 180 minutes in total), ranging from 0.157% to 5.081% depending on the
+patient.
 
-**[Full report](report.html)** covers the method, all negative results, and the pitfalls.
+**[Full report](report.html)** has the method, every negative result, and the pitfalls.
+
+## The main finding: a bug had erased most of the labels
+
+The code that reads seizure timestamps took the first number on each line:
+
+```python
+re.search(r'(\d+)', line)   # "Seizure 1 Start Time: 1724 seconds" captures "1"
+```
+
+Every seizure was recorded as starting *and* ending at second 1, so nothing was ever
+labelled. **18 of the 24 patients lost their entire ground truth**, and the six that
+happened to parse correctly hid the problem.
+
+Fixing it took the model from **worse than random guessing (AUC 0.32) to 0.78** -- more
+than every other experiment in this project combined.
+
+## What did not work
+
+Eleven things were tried. **Three helped:** fixing the labels, smoothing predictions over
+time, and adapting the model to individual patients.
+
+**Eight changed nothing or made it worse:** synthetic data (SMOTE), weighted sampling,
+2.7x more background EEG, 52% more seizures, three different training class balances, a
+2.8x larger model, rolling threshold recalibration, and swapping in a pretrained
+foundation model.
+
+Class imbalance was never the real problem. The data only *looked* imbalanced because the
+bug had deleted the positive labels.
+
+## A pretrained foundation model did not help
+
+CBraMod (ICLR 2025, 4.9M parameters, pretrained on 9,000 hours of hospital EEG) was
+compared against the 121k-parameter model trained from scratch. Same folds, same patients,
+same seed -- only the model differed.
+
+| fold | from scratch | CBraMod | difference |
+|---|---|---|---|
+| 1 | 0.8353 | 0.8682 | +0.0329 |
+| 2 | 0.7630 | 0.7354 | -0.0276 |
+| 3 | 0.7939 | 0.7919 | -0.0020 |
+| **mean** | **0.7974** | **0.7985** | **+0.0011** |
+
+The folds disagree in both directions and the average difference is one thousandth of a
+point. **40x the parameters and 9,000 hours of pretraining bought nothing.** This matches
+independent benchmarks, which find these models often score no better than their own
+random starting weights on seizure tasks.
+
+## Things that fooled the measurements
+
+- **`chb01` and `chb21` are the same child**, recorded 18 months apart. Splitting them
+  across folds leaks. It barely moved AUC but cost 8 points of event sensitivity.
+- **Counting alarms as runs is gameable.** Flag everything, the alarms merge into one run
+  that overlaps a real seizure, and you book almost no false alarms at 100% sensitivity.
+- **Which patients land in which fold moves the result by 8 points.** Anything smaller
+  than that is noise at 3 folds.
+- **The scoring rules matter more than they sound.** The same predictions give 4.4 or 14.9
+  false alarms/hour depending on the scorer. Always say which one.
 
 ## Run it
 
@@ -27,65 +81,7 @@ python evaluate_end_to_end.py --target-fa 2.0
 python score_szcore.py --cache endtoend_probs.npz
 ```
 
-CUDA GPU, ~15 GB RAM. Training ~40 min, evaluation ~25 min.
-
-## The label bug
-
-The annotation parser took the first number on each line:
-
-```python
-re.search(r'(\d+)', line)   # "Seizure 1 Start Time: 1724 seconds" captures "1"
-```
-
-Every seizure was stored as second 1 to second 1. **18 of 24 patients lost their entire
-ground truth.** Fixing it moved AUC from 0.32 to 0.78, more than every other experiment
-combined.
-
-## What didn't work
-
-Of eleven interventions, three helped: label repair, temporal smoothing, and selective
-per-patient personalisation. Eight did nothing or made things worse: SMOTE, weighted
-sampling, more background, more seizures, training class prior, a larger model, rolling
-threshold recalibration, and swapping in a pretrained foundation model (below).
-
-Class imbalance was never the real problem. The data only looked imbalanced because the
-bug had erased the positive labels.
-
-## A pretrained foundation model does not help
-
-CBraMod (ICLR 2025, 4.9M params, pretrained on 9,000 h of hospital EEG) was fine-tuned
-and compared against the 121k-param from-scratch model. Paired: identical folds, patients,
-seed, windows and labels, with only the architecture differing.
-
-| fold | EEG-Conformer | CBraMod | delta |
-|---|---|---|---|
-| 1 | 0.8353 | 0.8682 | +0.0329 |
-| 2 | 0.7630 | 0.7354 | -0.0276 |
-| 3 | 0.7939 | 0.7919 | -0.0020 |
-| **mean** | **0.7974 +/- 0.0296** | **0.7985 +/- 0.0544** | **+0.0011** |
-
-A mean paired difference of **+0.001**, with folds disagreeing in both directions and a
-spread of differences (0.025) larger than the difference itself. CBraMod was also less
-stable across folds. 40x the parameters and 9,000 h of pretraining bought nothing.
-
-This matches independent benchmarks, which find these models frequently match their own
-random initialisation on seizure tasks. Reproduce with `train_cbramod.py`; the data
-conversion is `edf_to_cbramod.py`, verified to produce identical labels and window counts
-to the main pipeline.
-
-CHB03 and CHB05 are excluded from that comparison: their local copies predate `raw_data/`
-and do not match the PhysioNet recordings, so they cannot be paired. 22 patients remain.
-
-## Gotchas
-
-- `chb01` and `chb21` are the same child recorded 18 months apart. Keep them in one fold.
-- Counting alarm runs is gameable: flag everything and they merge into one run that
-  overlaps a real seizure, booking almost no false alarms at 100% sensitivity.
-- Patient grouping moves the headline by 8 points at 3 folds.
-
-## Data
-
-Not included (205 GB). CHB-MIT is public on PhysioNet, and `edf_to_npz.py
---fetch-missing` downloads and converts it.
+CUDA GPU, about 15 GB RAM. Training ~40 min, evaluation ~25 min.
+Data is not included (205 GB); `edf_to_npz.py --fetch-missing` downloads it from PhysioNet.
 
 MIT License
