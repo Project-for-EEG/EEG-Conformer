@@ -92,7 +92,7 @@ class SMOTEOversampler:
         return X_resampled, y_resampled
 
 
-def load_patient_data(patient_id: str, data_dir: Path, max_segments: int = 10000) -> Tuple[np.ndarray, np.ndarray]:
+def load_patient_data(patient_id: str, data_dir, max_segments: int = 10000) -> Tuple[np.ndarray, np.ndarray]:
     """Load one patient's segments, capped at max_segments, keeping all seizures.
 
     Done in two passes. The previous version appended whole files until it hit
@@ -102,7 +102,9 @@ def load_patient_data(patient_id: str, data_dir: Path, max_segments: int = 10000
     its seizure segments. Reading the labels first makes the choice of what to
     keep global to the patient rather than an accident of file order.
     """
-    patient_dir = data_dir / patient_id
+    patient_dir = resolve_patient_dir(patient_id, data_dir)
+    if patient_dir is None:
+        return None, None
     npz_files = sorted(patient_dir.glob("*.npz"))
 
     if not npz_files:
@@ -151,9 +153,79 @@ def load_patient_data(patient_id: str, data_dir: Path, max_segments: int = 10000
     return X, y
 
 
-def get_patient_list(data_dir: Path) -> List[str]:
-    """Get list of all available patients"""
-    patients = [d.name for d in data_dir.iterdir() if d.is_dir()]
+def as_roots(data_dir) -> List[Path]:
+    """One directory or several, always as a list.
+
+    Every caller used to pass a single preprocessed_data/ root. Merging a
+    second cohort means a patient can live under either root, so both are
+    searched -- a single Path still behaves exactly as before.
+    """
+    if isinstance(data_dir, (list, tuple)):
+        return [Path(d) for d in data_dir]
+    return [Path(data_dir)]
+
+
+def resolve_patient_dir(patient_id: str, data_dir):
+    """Which root holds this patient. None when no root does."""
+    for root in as_roots(data_dir):
+        cand = root / patient_id
+        if cand.is_dir():
+            return cand
+    return None
+
+
+FULL_CHANNELS = 23      # CHB-MIT's native montage
+
+
+def apply_channel_drop(X, drop_channels):
+    """Reduce one patient's array to the kept channels.
+
+    This has to happen per patient, before any concatenation. CHB-MIT arrives
+    with all 23 derivations; Siena arrives already at 20, because three of
+    CHB-MIT's channels use FT9/FT10 electrodes that Siena's montage does not
+    contain and cannot reconstruct. Concatenating first and slicing after --
+    which is what this used to do -- fails the moment both cohorts are loaded
+    together, since the arrays disagree on axis 1.
+
+    An array already at the target width is left alone: siena_to_npz.py builds
+    it in the post-drop order, so it is already the same montage.
+    """
+    if not drop_channels:
+        return X
+    n = X.shape[1]
+    target = FULL_CHANNELS - len(drop_channels)
+    if n == target:
+        return X
+    if n != FULL_CHANNELS:
+        raise ValueError(
+            "expected %d or %d channels, got %d; --drop-channels indices refer "
+            "to the %d-channel CHB-MIT montage"
+            % (FULL_CHANNELS, target, n, FULL_CHANNELS))
+    keep = [c for c in range(n) if c not in drop_channels]
+    return X[:, keep, :]
+
+
+def get_patient_list(data_dir) -> List[str]:
+    """Every patient across every root.
+
+    Colliding ids are an error rather than a silent merge: CHB-MIT uses CHBnn
+    and Siena uses PNnn so they cannot clash today, but a third cohort reusing
+    an id would otherwise have its recordings quietly appended to another
+    patient, which is the kind of leak that does not show up in any metric.
+    """
+    seen, patients = {}, []
+    for root in as_roots(data_dir):
+        if not root.exists():
+            continue
+        for d in sorted(root.iterdir()):
+            if not d.is_dir():
+                continue
+            if d.name in seen:
+                raise ValueError(
+                    "patient id %s appears in both %s and %s; ids must be "
+                    "unique across datasets" % (d.name, seen[d.name], root))
+            seen[d.name] = root
+            patients.append(d.name)
     return sorted(patients)
 
 
@@ -309,7 +381,10 @@ def run_patient_level_cv(
     epochs: int = 15,
     max_patients: int = None,
     max_segments: int = 10000,
-    exclude: list = None
+    exclude: list = None,
+    drop_channels: list = None,
+    seed: int = 42,
+    ckpt_prefix: str = "fold"
 ):
     """Run patient-level K-fold cross-validation (memory efficient)"""
     
@@ -336,8 +411,13 @@ def run_patient_level_cv(
     else:
         print(f"Using all {len(all_patients)} patients: {', '.join(all_patients)}")
     
-    # Split patients into folds
-    np.random.seed(42)
+    # Split patients into folds.
+    #
+    # Which patients share a fold moves the headline by ~8 points, so a single
+    # split is one sample from a wide distribution. Varying the seed and
+    # re-running gives paired folds across several splits, which is the only
+    # way to tell a real effect from a lucky grouping at this fold count.
+    np.random.seed(seed)
     np.random.shuffle(all_patients)
     fold_size = len(all_patients) // n_folds
     
@@ -397,12 +477,14 @@ def run_patient_level_cv(
         for patient in train_patients:
             X, y = load_patient_data(patient, data_dir, max_segments)
             if X is not None:
+                X = apply_channel_drop(X, drop_channels)
                 train_X_list.append(X)
                 train_y_list.append(y)
                 print(f"  {patient}: {len(X):,} segments, {np.sum(y)} seizures")
         
         X_train = np.concatenate(train_X_list, axis=0)
         y_train = np.concatenate(train_y_list, axis=0)
+
         
         print(f"\nTotal training: {len(y_train):,} segments, {np.sum(y_train)} seizures")
         
@@ -412,12 +494,14 @@ def run_patient_level_cv(
         for patient in val_patients:
             X, y = load_patient_data(patient, data_dir, max_segments)
             if X is not None:
+                X = apply_channel_drop(X, drop_channels)
                 val_X_list.append(X)
                 val_y_list.append(y)
                 print(f"  {patient}: {len(X):,} segments, {np.sum(y)} seizures")
         
         X_val = np.concatenate(val_X_list, axis=0)
         y_val = np.concatenate(val_y_list, axis=0)
+
         
         print(f"\nTotal validation: {len(y_val):,} segments, {np.sum(y_val)} seizures")
         
@@ -480,7 +564,10 @@ def run_patient_level_cv(
         # can stay honest about which patients this fold never saw.
         ckpt_dir = Path(config.training.save_dir)
         ckpt_dir.mkdir(parents=True, exist_ok=True)
-        ckpt_path = ckpt_dir / f'fold{fold + 1}.pt'
+        # Prefixed so runs cannot overwrite each other. The plain "fold1.pt"
+        # name is what the published 24-patient models use, and an ablation
+        # run silently replaced them once already.
+        ckpt_path = ckpt_dir / f'{ckpt_prefix}{fold + 1}.pt'
         torch.save({
             'fold': fold + 1,
             'model_state_dict': model.state_dict(),
@@ -564,6 +651,10 @@ def run_patient_level_cv(
         'metrics_at_optimal_threshold': {k: float(v) for k, v in opt_metrics.items()},
         'n_folds': n_folds,
         'n_patients': len(all_patients),
+        'seed': seed,
+        'drop_channels': drop_channels,
+        'balance': balance,
+        'max_segments': max_segments,
         'timestamp': datetime.now().isoformat()
     }
     
@@ -594,6 +685,21 @@ def main():
                              "'none' = train on the natural distribution.")
     parser.add_argument('--target-recall', type=float, default=0.90, help='Target recall')
     parser.add_argument('--max-patients', type=int, default=None, help='Limit number of patients')
+    parser.add_argument('--ckpt-prefix', default='fold',
+                        help='checkpoint filename prefix, so a side experiment '
+                             'does not overwrite the published fold1-3.pt')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='controls the patient-to-fold assignment and the '
+                             'background subsample; vary it to measure how '
+                             'much of a result is the grouping')
+    parser.add_argument('--data-dirs', nargs='*', default=['preprocessed_data'],
+                        help='one or more preprocessed roots; pass '
+                             'preprocessed_data preprocessed_data_siena to '
+                             'train on both cohorts')
+    parser.add_argument('--drop-channels', type=int, nargs='*', default=None,
+                        help='channel indices to drop, e.g. 19 20 21 for the '
+                             'FT9/FT10 derivations that cannot be reconstructed '
+                             "from the Siena unipolar montage")
     parser.add_argument('--exclude', nargs='*', default=None,
                         help='patient ids to drop entirely, e.g. CHB03 CHB05 '
                              'whose local data predates raw_data/ and does not '
@@ -615,16 +721,20 @@ def main():
     print(f"  Max segments/patient: {args.max_segments:,}")
     print("="*60)
     
-    set_seed(42)
+    set_seed(args.seed)
     
     config = get_config()
-    data_dir = Path("preprocessed_data")
+    if args.drop_channels:
+        config.model.num_channels -= len(args.drop_channels)
+        print(f"  dropping channels {args.drop_channels} -> "
+              f"{config.model.num_channels} channels")
+    data_dir = [Path(d) for d in args.data_dirs]
     
-    if not data_dir.exists():
-        print(f"\nError: {data_dir} not found!")
-        print("Run: python preprocess_data.py first")
+    missing = [d for d in data_dir if not d.exists()]
+    if missing:
+        print("Error: %s not found!"
+              % ", ".join(str(m) for m in missing))
         return
-    
     results = run_patient_level_cv(
         data_dir=data_dir,
         config=config,
@@ -634,7 +744,10 @@ def main():
         epochs=args.epochs,
         max_patients=args.max_patients,
         max_segments=args.max_segments,
-        exclude=args.exclude
+        exclude=args.exclude,
+        drop_channels=args.drop_channels,
+        seed=args.seed,
+        ckpt_prefix=args.ckpt_prefix
     )
     
     print("\n" + "="*60)

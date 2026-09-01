@@ -62,10 +62,41 @@ def smooth(probs, k):
     return num / den
 
 
+def model_channels(model):
+    """How many EEG channels this model expects.
+
+    Read off the spatial convolution rather than passed in as a flag. The
+    merged-cohort models are 20-channel while preprocessed_data/ still holds
+    23-channel CHB-MIT recordings, and a flag that has to be remembered at
+    every call site is how the wrong number quietly gets used.
+    """
+    for name, param in model.named_parameters():
+        if name.endswith("spatial_conv.0.weight"):
+            return param.shape[2]
+    return None
+
+
+def match_channels(X, model):
+    """Slice a 23-channel array down to what the model wants.
+
+    Only the FT9/FT10 derivations at 19, 20, 21 are ever dropped -- those are
+    the three Siena cannot reconstruct, and the 20-channel montage is defined
+    as the other twenty in their original order.
+    """
+    want = model_channels(model)
+    if want is None or X.shape[1] == want:
+        return X
+    if X.shape[1] == 23 and want == 20:
+        keep = [c for c in range(23) if c not in (19, 20, 21)]
+        return X[:, keep, :]
+    raise ValueError("cannot map %d channels onto a %d-channel model"
+                     % (X.shape[1], want))
+
+
 def predict_file(model, device, npz_path, batch=256):
     """Seizure probability for every window of one recording, in time order."""
     with np.load(npz_path) as data:
-        X = data["segments"]
+        X = match_channels(data["segments"], model)
         y = data["labels"]
         out = []
         with torch.no_grad():

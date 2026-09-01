@@ -45,6 +45,26 @@ CKPT = Path("checkpoints")
 WINDOWS_PER_HOUR = int(3600 / SECONDS_PER_WINDOW)
 
 
+def build_model(ck, device):
+    """Rebuild whichever architecture wrote this checkpoint.
+
+    Dispatch is on the checkpoint's own contents rather than a command-line
+    flag, so a CBraMod checkpoint cannot be silently loaded as an
+    EEG-Conformer or scored against the wrong data. CBraMod checkpoints record
+    a "backbone" key; EEG-Conformer ones record "model_config".
+    """
+    if ck.get("backbone") == "CBraMod":
+        from train_cbramod import CBraModClassifier
+        m = CBraModClassifier().to(device)
+    elif "model_config" in ck:
+        m = create_model(ModelConfig(**ck["model_config"])).to(device)
+    else:
+        raise ValueError("checkpoint names no architecture: %s" % sorted(ck))
+    m.load_state_dict(ck["model_state_dict"])
+    m.eval()
+    return m
+
+
 def apply_min_consec(pred, min_consec):
     if min_consec <= 1:
         return pred
@@ -102,6 +122,12 @@ def score(blocks, thresh, k, m, rolling=None):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--target-fa", type=float, default=2.0)
+    ap.add_argument("--data-root", default=None,
+                    help="preprocessed root to read recordings from. CBraMod "
+                         "needs cbramod_data (200 Hz, uV/100); the default "
+                         "preprocessed_data is 256 Hz and z-scored, and "
+                         "feeding one to a model trained on the other is "
+                         "silently wrong rather than an error")
     ap.add_argument("--ckpt-glob", type=str, default="fold*.pt",
                     help="which fold checkpoints to evaluate, e.g. "
                          "natural_fold*.pt for the natural-prior models")
@@ -119,6 +145,11 @@ def main():
 
     torch.manual_seed(42)
     np.random.seed(42)
+
+    if args.data_root:
+        import finetune_per_patient as fpp
+        fpp.PREP = Path(args.data_root)
+        print("reading recordings from %s" % args.data_root)
     K, M = args.smooth, args.min_consec
     chunk = int(args.roll_hours * WINDOWS_PER_HOUR)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -149,10 +180,7 @@ def main():
         ck = torch.load(owner[patient], map_location=device, weights_only=False)
 
         def fresh():
-            m = create_model(ModelConfig(**ck["model_config"])).to(device)
-            m.load_state_dict(ck["model_state_dict"])
-            m.eval()
-            return m
+            return build_model(ck, device)
 
         rng = np.random.default_rng(42)
         masks = adapt_background_mask(files, split, args.calib_holdout, rng)
@@ -167,7 +195,9 @@ def main():
             model = base
         else:
             del base
-            model = finetune(fresh(), *load_adapt(files, split, masks),
+            tuned = fresh()
+            model = finetune(tuned,
+                             *load_adapt(files, split, masks, model=tuned),
                              device, args.epochs, args.lr)
             bg = adapt_background_probs(model, device, files, split, masks)
             t = pick_threshold(bg, args.target_fa, K, M)

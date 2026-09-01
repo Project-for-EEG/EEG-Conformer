@@ -36,7 +36,7 @@ from torch.utils.data import DataLoader, TensorDataset, WeightedRandomSampler
 
 from config import ModelConfig
 from model import create_model
-from evaluate_temporal import find_runs, predict_file
+from evaluate_temporal import find_runs, match_channels, predict_file
 from calibrate_per_patient import score_blocks, pick_threshold
 from train_memory_efficient import FocalLoss
 
@@ -93,7 +93,7 @@ def adapt_background_mask(files, split, holdout_frac, rng):
     return masks
 
 
-def load_adapt(files, split, masks, max_background=4000):
+def load_adapt(files, split, masks, max_background=4000, model=None):
     """Fine-tuning set: every seizure, plus background NOT reserved for
     calibration."""
     fi, wi = split
@@ -102,6 +102,8 @@ def load_adapt(files, split, masks, max_background=4000):
     for i, f in enumerate(files[:fi + 1]):
         with np.load(f) as d:
             seg, lab = d["segments"], d["labels"]
+            if model is not None:
+                seg = match_channels(seg, model)
             if i == fi:
                 seg, lab = seg[:wi], lab[:wi]
             pos = np.where(lab == 1)[0]

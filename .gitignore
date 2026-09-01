@@ -68,7 +68,8 @@ lopo_timing.log
 dl_last.log
 
 # one-off analysis scripts and an unused harness -- kept locally, out of the repo
-train_lopo.py
+# (train_lopo.py was here until leave-one-patient-out became the headline
+# result and the merge experiment; the README now tells people to run it)
 compare_operating_points.py
 compare_finetune.py
 sweep_operating_points.py

@@ -334,11 +334,11 @@ li::marker  {
       <div class="readout-head">Final result, held-out, leak-free</div>
       <div class="readout-body">
         <div class="stat">
-          <div class="stat-val">83<span class="unit">%</span></div>
-          <div class="stat-label">of seizures detected<br>140 of 168 events</div>
+          <div class="stat-val">94<span class="unit">%</span></div>
+          <div class="stat-label">of seizures detected<br>158 of 168 events</div>
         </div>
         <div class="stat">
-          <div class="stat-val">4.4</div>
+          <div class="stat-val">5.2</div>
           <div class="stat-label">false alarms<br>per hour</div>
         </div>
         <div class="stat">
@@ -347,11 +347,12 @@ li::marker  {
         </div>
       </div>
       <div class="readout-foot">
-        SzCORE event scoring | 5 of 24 patients personalised on one earlier seizure<br>
-        Under our stricter in-house scorer, identical predictions give 78% at 14.9 FA/h
+        SzCORE event scoring | leave-one-patient-out, 23 folds | 5 of 24 patients personalised on one earlier seizure<br>
+        Under our stricter in-house scorer, identical predictions give 89% at 14.4 FA/h
       </div>
     </div>
-    <p>Patient-level 3-fold cross-validation gives <strong>AUC 0.7795 +/- 0.0168</strong> (folds: 0.763, 0.773, 0.803). Every split is by patient and ordered in time, so no recording, and no person, appears on both sides.</p>
+    <p>Leave-one-patient-out over 23 subjects. Every split is by patient and ordered in time, so no recording, and no person, appears on both sides. Per-patient AUC is <strong>0.803 +/- 0.174</strong>, and that spread is the point: an earlier 3-fold run reported +/- 0.017, which was the spread of three eight-patient averages rather than of patients.</p>
+    <p class="note">Adding a second hospital's 14 patients trades in the other direction: <strong>34% fewer false alarms for about two points of sensitivity</strong>. Both operating points are reported below rather than only the flattering one.</p>
   </section>
 
   <section>
@@ -365,7 +366,7 @@ li::marker  {
   </section>
 
   <section>
-    <h2>Eleven interventions, three that helped</h2>
+    <h2>Thirteen interventions, four that helped and one that traded</h2>
     <div class="marker-key">
       <span><span class="mk mk-yes"></span>improved the result</span>
       <span><span class="mk mk-null"></span>no measurable effect</span>
@@ -387,7 +388,10 @@ li::marker  {
           <tr><td><span class="mk mk-null"></span>Training class prior (12% / 3.6% / 1.4%)</td><td class="effect">none across an 8.6x range</td></tr>
           <tr><td><span class="mk mk-bad"></span>2.8x model capacity</td><td class="effect">AUC 0.79 to  0.76 (overfitting)</td></tr>
           <tr><td><span class="mk mk-bad"></span>Rolling threshold recalibration</td><td class="effect">worse on both sensitivity and false alarms</td></tr>
-          <tr><td><span class="mk mk-null"></span>Pretrained foundation model (CBraMod)</td><td class="effect">+0.001 paired, i.e. nothing</td></tr>
+          <tr><td><span class="mk mk-bad"></span>Pretrained foundation model (CBraMod)</td><td class="effect">0.104 lower event sensitivity, more false alarms</td></tr>
+          <tr><td><span class="mk mk-yes"></span>Six more training patients (leave-one-patient-out)</td><td class="effect">+0.10 event sensitivity, fewer false alarms</td></tr>
+          <tr><td><span class="mk mk-null"></span>14 patients from a second hospital (Siena)</td><td class="effect">34% fewer false alarms, ~2 points less sensitivity</td></tr>
+          <tr><td><span class="mk mk-bad"></span>Dropping 3 of 23 channels (FT9/FT10)</td><td class="effect">0.109 lower event sensitivity, though AUC said +0.026</td></tr>
         </tbody>
       </table>
     </div>
@@ -398,7 +402,7 @@ li::marker  {
   </section>
 
   <section>
-    <h2>A pretrained foundation model does not help</h2>
+    <h2>A pretrained foundation model makes it worse</h2>
     <p>The architecture was the one variable never tested. CBraMod (ICLR 2025, 4.9M
     parameters, pretrained on 9,000 hours of hospital EEG) was fine-tuned and compared
     against the 121k-parameter model trained from scratch. The comparison is
@@ -417,6 +421,7 @@ li::marker  {
         </tbody>
       </table>
     </div>
+    <p>That is window-level AUC. Scored on <em>events</em>, through the same honest pipeline and on the identical folds, the two models are not close: EEG-Conformer catches <strong>152 of 164</strong> seizures at 15.8 false alarms per hour, CBraMod <strong>135 of 164</strong> at 17.0. Seventeen fewer seizures, and more false alarms, from 40x the parameters and 9,000 hours of pretraining. AUC priced that gap at one thousandth of a point.</p>
     <p>A mean paired difference of <strong>+0.001</strong>. The folds disagree in both
     directions, and the spread of differences (0.025) is larger than the difference
     itself, matching the same-fold noise measured independently. CBraMod was also the
@@ -429,7 +434,7 @@ li::marker  {
   </section>
 
   <section>
-    <h2>Four things that fooled the measurements</h2>
+    <h2>Five things that fooled the measurements</h2>
     <p>The most transferable findings here are about measurement, not modelling. Each of these produced a confidently wrong number before it was caught.</p>
 
     <h3>Counting alarm runs is gameable</h3>
@@ -440,6 +445,9 @@ li::marker  {
 
     <h3>Patient grouping moves the headline by +/-8 points</h3>
     <p>One reshuffle of which patients sit in which fold swung individual results violently, CHB06 from 33% to 100%, CHB14 from 43% to 14%, CHB12 from 95% to 64%. Same data, same model. Any comparison finer than about +/-0.08 is noise at 3 folds, which retroactively invalidates several small differences chased during this work.</p>
+
+    <h3>AUC got three separate decisions backwards</h3>
+    <p>It rated dropping three channels at +0.026 when the true event cost was -0.109; rated adding the Siena cohort at -0.029 when the event gain was +0.084; and rated CBraMod at +0.001 when it catches 17 fewer seizures. AUC ranks windows in isolation, but a seizure is caught if <em>any</em> window inside it clears threshold, and an alarm is false based on runs of neighbouring windows. Neither survives being averaged into a rank. Every headline number in this project is now event-level.</p>
 
     <h3>The scorer changes the answer by 3.4x</h3>
     <p>Identical predictions score 14.9 FA/h under a strict rule and 4.4 FA/h under SzCORE event rules (90 s merging, 30/60 s tolerance). Sensitivity moves too, 78% to 83%. Published false-alarm rates are not comparable unless the scorer is named.</p>
@@ -455,7 +463,7 @@ li::marker  {
         <tbody>
           <tr><td>2025 SzCORE challenge winner <span style="color:var(--ink-faint)">(private, cross-hospital)</span></td><td class="num">37%</td><td class="num">1.3 / day</td></tr>
           <tr><td>Published CHB-MIT, leave-one-patient-out</td><td class="num">75-85%</td><td class="num">1-5 / hour</td></tr>
-          <tr class="is-yes"><td><strong>This work</strong></td><td class="num">83%</td><td class="num">4.4 / hour</td></tr>
+          <tr class="is-yes"><td><strong>This work</strong></td><td class="num">94%</td><td class="num">5.2 / hour</td></tr>
           <tr><td>Rule-based baseline (Gotman, 1982)</td><td class="num">91%</td><td class="num">~10 / hour</td></tr>
         </tbody>
       </table>
@@ -467,7 +475,8 @@ li::marker  {
   <section>
     <h2>Limitations</h2>
     <ul>
-      <li><strong>Not clinically usable.</strong> Continuous monitoring wants under 1 false alarm per hour; this is at 4.4.</li>
+      <li><strong>Not clinically usable.</strong> Continuous monitoring wants under 1 false alarm per hour; this is at 5.2.</li>
+      <li><strong>Cross-institution validation is one-directional.</strong> Siena patients are only ever training data, never held out, so nothing here says how the detector performs on adult Italian recordings.</li>
       <li><strong>Personalisation is part of the method.</strong> 5 of 24 patients were fine-tuned on one of their own earlier seizures, evaluated only on later ones. For a patient with no recorded seizure, the base model applies and performance is lower.</li>
       <li><strong>One hospital, 24 patients, all paediatric.</strong> No cross-institution validation.</li>
       <li><strong>Three folds is too few</strong> given the +/-8-point grouping variance. Leave-one-patient-out would be needed to resolve anything smaller.</li>
