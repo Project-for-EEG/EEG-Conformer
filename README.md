@@ -108,19 +108,29 @@ That last row is the calibration: **high sensitivity is cheap.** A 1982 rule-bas
 detector hits 91% if you tolerate enough noise. Suppressing false alarms is the real
 problem, and it is not solved here.
 
-## What worked
+## What worked, and how we know
 
-Sixteen things tried, four helped.
+Every comparison below is **paired**: same folds, same held-out patients, one variable
+changed. All are scored on *events* (seizures caught, false alarms per hour), never on
+window-level AUC, which got three of these calls backwards.
 
-| | what | effect |
-|---|---|---|
-| **yes** | Fixed a bug in the seizure labels | biggest single change |
-| **yes** | Smoothing predictions over time | ~3x fewer false alarms |
-| **yes** | A threshold per patient | +0.139 sensitivity |
-| **yes** | More patients | the only reliable lever |
-| no | Rebalancing the classes (6 ways) | nothing |
-| no | A pretrained foundation model | worse |
-| worse | Training on the "hard" background only | false alarms nearly doubled |
+| | what | effect | how we know |
+|---|---|---|---|
+| **yes** | Fixed a bug in the seizure labels | biggest single change | rerun the identical pipeline before and after the fix: AUC 0.32 to 0.78 |
+| **yes** | Smoothing predictions over time | ~3x fewer false alarms | same saved predictions scored with and without smoothing |
+| **yes** | A threshold per patient | +0.139 sensitivity | swept a single global threshold over identical predictions; no setting reaches 0.886 at all |
+| **yes** | More patients | the only reliable lever | two arms, same held-out patients, extra cohort pinned into training only. 16 to 22 patients: +0.10. Plus 79 newborns: +0.145, and +0.27 at 10 FA/h |
+| no | Rebalancing the classes (6 ways) | nothing | three models trained at 12% / 3.6% / 1.4% seizure on identical folds: 0.831 / 0.861 / 0.861 sensitivity, no trend |
+| no | A pretrained foundation model | worse | same folds and patients, only the architecture differs: 152 of 164 seizures against 135 of 164 |
+| worse | Training on the "hard" background only | false alarms nearly doubled | 11.8 to 21.4 FA/h; the mined windows sit within a minute of a seizure 4x as often as random ones |
+
+Two guards run inside the pipeline rather than living in anyone's memory, because both
+mistakes were made at least once:
+
+- **a flagged-time bound**, because a threshold low enough to alarm continuously scores
+  100% sensitivity at almost no false alarms while being useless
+- **a resume check on checkpoints**, because reusing a model trained with a different
+  channel count silently answers the wrong question
 
 **More patients is the one thing that works.** 16 to 22 training patients gained 10
 points of sensitivity. Adding Helsinki's 79 newborns gained 15 more, and the gain was
