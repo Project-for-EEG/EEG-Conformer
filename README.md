@@ -225,6 +225,86 @@ free and CBraMod as neutral, both on AUC evidence gathered before event-level sc
 run. Both claims were wrong and are corrected above. Every headline number in this
 repository is now event-level.
 
+## Class imbalance is not the lever, and neither is picking better negatives
+
+Seizures are 1.363% of recorded time, so rebalancing the training set is the first thing
+anyone suggests. Six variants have now been tested; none work, and one is actively harmful.
+
+### Rebalancing the ratio
+
+Three models trained at 12%, 3.6% and 1.4% seizure on identical folds, an 8.6x range:
+
+| training balance | event sens | FA/h | p99 of output on pure background |
+|---|---|---|---|
+| 12% | 0.831 | **11.82** | 0.168 |
+| 3.6% | **0.861** | 13.69 | 0.021 |
+| 1.4% (the true rate) | 0.861 | 14.13 | 0.0039 |
+
+No trend. The best sensitivity and the best false-alarm rate come from different settings,
+and the true rate is worst on both.
+
+The last column is why. Training at the natural prior makes the model **40x less
+overconfident on background** -- a large, real change. It buys nothing, because the
+per-patient calibration simply selects a 40x lower threshold and absorbs it. Thresholding
+is rank-based; rebalancing moves confidence, not ranking.
+
+**This generalises.** Any intervention that shifts the model's confidence uniformly is
+invisible to this pipeline by construction. Only changes that reorder which windows score
+above which can survive calibration. That single fact explains most of the null results in
+the table above.
+
+### Selecting hard negatives, which is worse
+
+Rather than trimming background at random, keep the background windows the model actually
+fires on and drop the easy ones -- same volume, same class ratio, only *which* negatives
+changes. It targets false alarms directly rather than the ratio, so it should have escaped
+the calibration argument.
+
+| | event sens | FA/h | window AUC |
+|---|---|---|---|
+| uniform background | 0.831 | 11.82 | 0.78 |
+| 50% hardest background | 0.789 | **21.40** | **0.44** |
+
+Nearly double the false alarms, and window-level AUC below chance.
+
+The mined negatives cluster around seizures:
+
+| | within 1 min of a seizure | within 5 min |
+|---|---|---|
+| 500 hardest background windows | **13.5%** | **32.5%** |
+| 500 random background windows | 3.1% | 15.1% |
+
+Four times the concentration. CHB-MIT annotates the *clinical* seizure, but electrographic
+onset precedes it and post-ictal activity follows, so windows adjacent to a seizure look
+like seizures because they partly are. Half the training budget went on teaching the model
+that seizure-like activity is definitely not a seizure, and it learned exactly that.
+
+**Hard-negative mining assumes clean labels.** Seizure boundaries are a clinical judgement,
+not a signal transition, so any method that preferentially selects confusing negatives
+preferentially selects mislabelled ones. Random trimming is harmless and useless; selective
+trimming is harmful.
+
+## Per-patient thresholds are worth more than any model change except the label fix
+
+The decision threshold is fitted per patient, on that patient's own earlier recording,
+never on the test period. Measured against a single global threshold over identical
+predictions:
+
+| | event sens | FA/h |
+|---|---|---|
+| per-patient thresholds | **0.886** | 14.42 |
+| best global threshold | 0.747 | 9.96 |
+
+**+0.139 sensitivity**, 23 more seizures out of 166 -- and no global threshold reaches
+0.886 at any setting without flagging so much of the recording that the detector stops
+detecting.
+
+The calibrated thresholds span **0.036 to 0.998** across 24 patients. Some patients need
+the model 28x more certain before alarming. No single number serves both ends.
+
+The cost is real: a patient with no prior recording gets the default and does worse, and
+the scheme normalises away exactly the kind of model improvement described above.
+
 ## The dataset
 
 ```
@@ -283,6 +363,8 @@ CUDA GPU and about 15 GB RAM. 3-fold training ~40 min, LOPO ~9 h, evaluation ~25
 | `parse_siena.py` | Siena annotations from EDF headers, not the hand-written text |
 | `siena_to_npz.py` | Siena to CHB-MIT montage, with a truncated-download guard |
 | `check_domain_shift.py` | How separable the two cohorts are, per channel |
+| `train_hard_negatives.py` | Hard-negative mining, with a leakage check on the mining model |
+| `train_natural_prior.py` | Training at the true 1.4% class prior |
 | `model.py`, `config.py` | EEG-Conformer, 120,962 parameters |
 
 **Evaluation** -- the part worth reusing
@@ -303,8 +385,7 @@ CUDA GPU and about 15 GB RAM. 3-fold training ~40 min, LOPO ~9 h, evaluation ~25
 | `train_cbramod.py` | Fine-tunes CBraMod on identical folds |
 | `edf_to_cbramod.py` | Converts to 200 Hz / uV-100, verified to match the main pipeline |
 
-**Experiments** -- `train_natural_prior.py` (class-prior ablation) and `build_memmap.py`
-(full dataset as one float16 memmap). Result files are indexed in
+**Experiments** -- `build_memmap.py` (full dataset as one float16 memmap). Result files are indexed in
 [`cv_results/README.md`](cv_results/README.md).
 
 ## The label bug
@@ -333,7 +414,7 @@ Fixing it took the dataset from 564 to 5,408 seizure segments and moved AUC from
 
 ## What did not work
 
-Thirteen interventions; four helped, one traded.
+Sixteen interventions; five helped, one traded.
 
 | | Intervention | Effect |
 |---|---|---|
@@ -347,7 +428,9 @@ Thirteen interventions; four helped, one traded.
 | no | Weighted batch sampling | none |
 | no | 2.7x more background EEG | none |
 | no | +52% more seizures (68 downloaded) | none |
-| no | Training class prior (12% / 3.6% / 1.4%) | none across an 8.6x range |
+| no | Training class prior (12% / 3.6% / 1.4%) | none across an 8.6x range, on events as well as AUC |
+| worse | Hard-negative mining (50% hardest background) | false alarms 11.8 to 21.4 per hour |
+| yes | Per-patient decision thresholds | +0.139 event sensitivity over any global threshold |
 | worse | Pretrained foundation model (CBraMod) | -0.104 event sensitivity, more false alarms |
 | worse | 2.8x model capacity | AUC 0.79 to 0.76 (overfitting) |
 | worse | Rolling threshold recalibration | worse on both sensitivity and false alarms |
@@ -420,6 +503,13 @@ into one run, which overlaps a real seizure and therefore books almost no false 
 scoring ~0 FA/h at 100% sensitivity while being useless. Guard with a flagged-time bound
 (`max_flagged` in `calibrate_per_patient.py`).
 
+This is not a hypothetical. Comparing per-patient against global thresholds, a first pass
+without the bound reported *1.000 sensitivity at 0.15 FA/h* from a global threshold of
+0.010 -- a perfect score from a detector that alarms continuously. The trap was already
+documented here and was walked into anyway, which is the argument for keeping the bound in
+the pipeline rather than in the analyst's memory. For reference, the real system flags
+8.5% of recorded time against a 1.8% seizure rate, and one patient (CHB12) flags 34%.
+
 **AUC cannot see what breaks end to end.** Cases `chb01` and `chb21` are the same child,
 and the splits put her on both sides. Fixing it moved AUC by **0.013** and event
 sensitivity by **0.084**. Judged on AUC alone the leak looked harmless.
@@ -448,6 +538,9 @@ unless the scorer is named.
 ## Limitations
 
 - **Not clinically usable.** Continuous monitoring wants under 1 FA/hour; this is at 5.2.
+- **Two patients dominate the false-alarm rate.** CHB12 and CHB13 have 34% and 25% of
+  their recordings flagged, against a 1.8% seizure rate, and contribute a large share of
+  the pooled 14 FA/h. The average describes almost nobody.
 - **Personalisation is part of the method.** 5 of 24 patients were fine-tuned on one of
   their own earlier seizures, evaluated only on later ones. For a patient with no recorded
   seizure, the base model applies and performance is lower.

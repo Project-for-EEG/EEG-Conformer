@@ -366,7 +366,7 @@ li::marker  {
   </section>
 
   <section>
-    <h2>Thirteen interventions, four that helped and one that traded</h2>
+    <h2>Sixteen interventions, five that helped and one that traded</h2>
     <div class="marker-key">
       <span><span class="mk mk-yes"></span>improved the result</span>
       <span><span class="mk mk-null"></span>no measurable effect</span>
@@ -392,6 +392,8 @@ li::marker  {
           <tr><td><span class="mk mk-yes"></span>Six more training patients (leave-one-patient-out)</td><td class="effect">+0.10 event sensitivity, fewer false alarms</td></tr>
           <tr><td><span class="mk mk-null"></span>14 patients from a second hospital (Siena)</td><td class="effect">34% fewer false alarms, ~2 points less sensitivity</td></tr>
           <tr><td><span class="mk mk-bad"></span>Dropping 3 of 23 channels (FT9/FT10)</td><td class="effect">0.109 lower event sensitivity, though AUC said +0.026</td></tr>
+          <tr><td><span class="mk mk-bad"></span>Hard-negative mining (50% hardest background)</td><td class="effect">false alarms 11.8 to 21.4 per hour</td></tr>
+          <tr class="is-yes"><td><span class="mk mk-yes"></span>Per-patient decision thresholds</td><td class="effect">+0.139 event sensitivity over any global threshold</td></tr>
         </tbody>
       </table>
     </div>
@@ -438,6 +440,7 @@ li::marker  {
     <p>The most transferable findings here are about measurement, not modelling. Each of these produced a confidently wrong number before it was caught.</p>
 
     <h3>Counting alarm runs is gameable</h3>
+    <p class="note">Hit again while writing this page. A first pass comparing global against per-patient thresholds reported <em>1.000 sensitivity at 0.15 false alarms per hour</em> from a threshold of 0.010 -- a perfect score from a detector that alarms continuously. The trap was already documented here and was walked into anyway, which is the argument for keeping the flagged-time bound in the pipeline rather than in the analyst's memory.</p>
     <p>False alarms were counted as contiguous runs of positive predictions. A threshold low enough to flag <em>everything</em> merges into one run per recording, which overlaps a real seizure and therefore books almost no false alarms, scoring ~0 FA/h at 100% sensitivity while being useless. This appeared <strong>four separate times</strong> in different scripts before being fixed with a flagged-time bound in all of them.</p>
 
     <h3>AUC cannot see what breaks end-to-end</h3>
@@ -454,6 +457,14 @@ li::marker  {
   </section>
 
   <section>
+    <h2>Class imbalance is not the lever</h2>
+    <p>Seizures are 1.363% of recorded time, so rebalancing is the first thing anyone suggests. Six variants have been tested. Three models trained at 12%, 3.6% and 1.4% seizure, an 8.6x range, give <strong>0.831 / 0.861 / 0.861</strong> event sensitivity at <strong>11.8 / 13.7 / 14.1</strong> false alarms per hour. No trend: the best sensitivity and the best false-alarm rate come from different settings.</p>
+    <p>Training at the true 1.4% makes the model <strong>40x less overconfident on background</strong>, and it buys nothing, because the per-patient calibration picks a 40x lower threshold and absorbs it. Thresholding is rank-based. <em>Any intervention that shifts confidence uniformly is invisible to this pipeline by construction</em> -- which explains most of the null results above.</p>
+    <p>Selecting the <em>hardest</em> background instead of trimming it at random is worse still: false alarms rise from 11.8 to <strong>21.4</strong> per hour and window AUC falls to 0.44, below chance. The mined windows sit next to seizures four times as often as random ones (13.5% within a minute, against 3.1%), because CHB-MIT annotates the clinical seizure while electrographic onset precedes it. Half the training budget went on teaching the model that seizure-like activity is not a seizure. <strong>Hard-negative mining assumes clean labels, and seizure boundaries are a clinical judgement rather than a signal transition.</strong></p>
+
+    <h2>Per-patient thresholds are worth more than any model change except the label fix</h2>
+    <p>Fitted on each patient's own earlier recording, never the test period. Against a single global threshold over identical predictions: <strong>0.886 sensitivity at 14.4 FA/h</strong> versus <strong>0.747 at 10.0</strong>. That is <strong>+0.139</strong>, 23 more seizures out of 166, and no global threshold reaches 0.886 at any setting without flagging so much of the recording that the detector stops detecting. The calibrated thresholds span 0.036 to 0.998 across 24 patients.</p>
+
     <h2>Where this sits</h2>
     <div class="scroll">
       <table>

@@ -23,9 +23,10 @@ Each backs a claim made in the top-level README.
 | `patient_cv_results_20260728_021408.json` | 0.7887 +/- 0.0327 | 2.7x more background: no effect |
 | `patient_cv_results_20260817_171644.json` | 0.7911 +/- 0.0596 | +52% more seizures: no effect |
 | `patient_cv_results_20260817_132308.json` | 0.7574 +/- 0.0064 | 2.8x model capacity: worse |
+| `hardneg_20260914_145408.json` | 0.4404 +/- 0.0847 | hard-negative mining: 21.4 FA/h against 11.8 baseline |
 | `prior12_20260818_124735.json` | 0.7629 +/- 0.0253 | training prior 12% |
 | `prior036_20260818_142312.json` | 0.7411 +/- 0.0428 | training prior 3.6% |
-| `natural_prior_20260818_052538.json` | 0.7639 +/- 0.0317 | training prior 1.4% -- the three together are the "class prior: no effect across 8.6x" claim |
+| `natural_prior_20260818_052538.json` | 0.7639 +/- 0.0317 | training prior 1.4% -- the three together are the "class prior: no effect across 8.6x" claim, since confirmed at event level (0.831 / 0.861 / 0.861 sensitivity at 11.8 / 13.7 / 14.1 FA/h) |
 
 **AUC in this table is not the result.** It is kept because these runs were originally
 compared on it, and because three of the project's findings are that it misleads: it
