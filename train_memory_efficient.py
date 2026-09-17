@@ -384,7 +384,8 @@ def run_patient_level_cv(
     exclude: list = None,
     drop_channels: list = None,
     seed: int = 42,
-    ckpt_prefix: str = "fold"
+    ckpt_prefix: str = "fold",
+    always_train: list = None
 ):
     """Run patient-level K-fold cross-validation (memory efficient)"""
     
@@ -397,6 +398,20 @@ def run_patient_level_cv(
     
     # Get all patients
     all_patients = get_patient_list(data_dir)
+
+    # Patients pinned to training never enter the fold rotation, so they are
+    # never held out and never scored. That is what makes a second cohort a
+    # controlled addition: the held-out patients are identical with and
+    # without it, and only the training set differs.
+    always_train = list(always_train or [])
+    if always_train:
+        unknown = [p for p in always_train if p not in all_patients]
+        if unknown:
+            raise ValueError("--always-train names patients that do not "
+                             "exist: " + ", ".join(unknown))
+        all_patients = [p for p in all_patients if p not in always_train]
+        print("pinned to every training set, never held out: %d patients"
+              % len(always_train))
     if exclude:
         dropped = [p for p in all_patients if p in exclude]
         all_patients = [p for p in all_patients if p not in exclude]
@@ -467,6 +482,8 @@ def run_patient_level_cv(
         # Determine train and val patients
         val_patients = patient_folds[fold]
         train_patients = [p for i, patients in enumerate(patient_folds) if i != fold for p in patients]
+        # pinned patients join every fold's training set
+        train_patients = train_patients + always_train
         
         print(f"Train patients: {', '.join(train_patients)}")
         print(f"Val patients: {', '.join(val_patients)}")
@@ -685,6 +702,10 @@ def main():
                              "'none' = train on the natural distribution.")
     parser.add_argument('--target-recall', type=float, default=0.90, help='Target recall')
     parser.add_argument('--max-patients', type=int, default=None, help='Limit number of patients')
+    parser.add_argument('--always-train', nargs='*', default=None,
+                        help='patients that join every fold training set and '
+                             'are never held out; use to add a second cohort '
+                             'while still measuring on the first')
     parser.add_argument('--ckpt-prefix', default='fold',
                         help='checkpoint filename prefix, so a side experiment '
                              'does not overwrite the published fold1-3.pt')
@@ -747,7 +768,8 @@ def main():
         exclude=args.exclude,
         drop_channels=args.drop_channels,
         seed=args.seed,
-        ckpt_prefix=args.ckpt_prefix
+        ckpt_prefix=args.ckpt_prefix,
+        always_train=args.always_train
     )
     
     print("\n" + "="*60)

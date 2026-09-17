@@ -63,6 +63,9 @@ except ImportError:
     raise SystemExit("mne is required: pip install mne")
 
 SIENA = Path("additional_data/siena")
+# Default matches the 20-channel build. The 23-channel one uses
+# --approximate-ft and should be given --out preprocessed_data_siena23,
+# or it lands in a directory named for the other montage.
 OUT = Path("preprocessed_data_siena")
 ANNOTATIONS = Path("siena_seizures.json")
 

@@ -171,7 +171,7 @@ def main():
             a = roc_auc_score(y[~cut], c.predict_proba(Xch[~cut])[:, 1])
             order.append((a, ch))
         for a, ch in sorted(order, reverse=True):
-            mark = "  <- approximated from F9/F10" if ch in (19, 20, 21) else ""
+            mark = "  <- approximated" if ch in (19, 20, 21) else ""
             print("  channel %2d  AUC %.4f%s" % (ch, a, mark))
         approx = [a for a, ch in order if ch in (19, 20, 21)]
         rest = [a for a, ch in order if ch not in (19, 20, 21)]
@@ -180,8 +180,8 @@ def main():
             print("  approximated channels mean AUC %.4f, others %.4f"
                   % (sum(approx) / len(approx), sum(rest) / len(rest)))
             if sum(approx) / len(approx) > sum(rest) / len(rest) + 0.03:
-                print("  the F9/F10 substitution is more separable than the"
-                      " exact channels; it leaks cohort identity")
+                print("  the substituted channels are more separable than the"
+                      " exact ones; they leak cohort identity")
             else:
                 print("  the substitution is no more separable than the exact"
                       " channels, so it adds no new cohort signal")

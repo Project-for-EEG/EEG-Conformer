@@ -86,7 +86,7 @@ python score_szcore.py --cache endtoend_probs.npz
 Other cohorts:
 
 ```bash
-python parse_siena.py && python siena_to_npz.py --approximate-ft
+python parse_siena.py && python siena_to_npz.py --approximate-ft --out preprocessed_data_siena23
 python helsinki_to_npz.py --channels 20
 ```
 
@@ -119,7 +119,8 @@ window-level AUC, which got three of these calls backwards.
 | **yes** | Fixed a bug in the seizure labels | biggest single change | rerun the identical pipeline before and after the fix: AUC 0.32 to 0.78 |
 | **yes** | Smoothing predictions over time | ~3x fewer false alarms | same saved predictions scored with and without smoothing |
 | **yes** | A threshold per patient | +0.139 sensitivity | swept a single global threshold over identical predictions; no setting reaches 0.886 at all |
-| **yes** | More patients | the only reliable lever | two arms, same held-out patients, extra cohort pinned into training only. 16 to 22 patients: +0.10. Plus 79 newborns: +0.145, and +0.27 at 10 FA/h |
+| **yes** | More patients *from the same cohort* | +0.10 event sensitivity | 16 to 22 CHB-MIT training patients, leave-one-patient-out |
+| no | More patients from *other* hospitals | no reliable effect | two arms, same held-out patients, extra cohort pinned into training only. Siena: a trade. Helsinki: 0.789 to 0.813 sensitivity but 17.4 to 19.8 FA/h |
 | no | Rebalancing the classes (6 ways) | nothing | three models trained at 12% / 3.6% / 1.4% seizure on identical folds: 0.831 / 0.861 / 0.861 sensitivity, no trend |
 | no | A pretrained foundation model | worse | same folds and patients, only the architecture differs: 152 of 164 seizures against 135 of 164 |
 | worse | Training on the "hard" background only | false alarms nearly doubled | 11.8 to 21.4 FA/h; the mined windows sit within a minute of a seizure 4x as often as random ones |
@@ -132,24 +133,41 @@ mistakes were made at least once:
 - **a resume check on checkpoints**, because reusing a model trained with a different
   channel count silently answers the wrong question
 
-**More patients is the one thing that works.** 16 to 22 training patients gained 10
-points of sensitivity. Adding Helsinki's 79 newborns gained 15 more, and the gain was
-biggest at low false-alarm rates where it matters.
+**More patients helps, but only from the same cohort.** Going from 16 to 22 CHB-MIT
+training subjects gained 10 points of sensitivity. Adding patients from *other* hospitals
+did not reproduce that:
 
-**More data of the same kind does not.** More hours, more seizures, synthetic seizures:
-all nothing.
+| added to training | held-out CHB-MIT sensitivity | FA/h |
+|---|---|---|
+| nothing (control) | 0.789 | 17.4 |
+| 14 Siena adults | a trade: fewer false alarms, less sensitivity | |
+| 79 Helsinki newborns | 0.813 | 19.8 |
 
-**The cohorts need not resemble each other.** A classifier tells CHB-MIT from Helsinki
-apart at AUC 0.9995 -- children versus newborns, nine times the seizure rate. It helped
-anyway. Diversity is the benefit, not similarity.
+Helsinki gains 2 points of sensitivity for 2.5 more false alarms per hour. At matched
+false-alarm rates the difference changes sign depending where you look, which is what no
+effect looks like.
 
-## Two things that fooled us
+**More data of the same kind does not help either.** More hours, more seizures, synthetic
+seizures: all nothing.
+
+**Why cross-hospital data may not transfer.** A classifier separates CHB-MIT from Helsinki
+at AUC 0.9995 on band power alone -- children against newborns, nine times the seizure
+rate, different equipment. Earlier versions of this file argued the diversity would help
+regardless. The measurement does not support that.
+
+## Three things that fooled us
 
 **AUC got three decisions backwards.** It ranks single windows, but a detector is judged
 on catching a *seizure* and on false alarms -- both properties of runs of windows.
 Measured on AUC, dropping three channels looked free (it cost 0.109 sensitivity), adding
 Siena looked harmful (it helped), a foundation model looked equal (it is worse). Every
 number here is now event-level.
+
+**A 3-fold screen overstated a result by 6x.** The Helsinki cohort was screened at 3 folds
+and gained +0.145 sensitivity, +0.27 at 10 FA/h. At 23 folds the same comparison gives
++0.024, and the low-false-alarm advantage disappears. Fold assignment alone swings results
+by about +/-0.08 here, which was already documented, and the screen's result sat inside
+that. Screens are for deciding what to run properly, not for reporting.
 
 **Experts disagree about 47% of seizure time.** Helsinki's three doctors annotated all 79
 babies independently. So "when did the seizure start" is a judgement, not a fact -- which

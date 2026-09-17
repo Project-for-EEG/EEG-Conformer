@@ -23,6 +23,8 @@ Each backs a claim made in the top-level README.
 | `patient_cv_results_20260728_021408.json` | 0.7887 +/- 0.0327 | 2.7x more background: no effect |
 | `patient_cv_results_20260817_171644.json` | 0.7911 +/- 0.0596 | +52% more seizures: no effect |
 | `patient_cv_results_20260817_132308.json` | 0.7574 +/- 0.0064 | 2.8x model capacity: worse |
+| `lopoA__20260915_174606.json` | -- | Helsinki LOPO control (CHB-MIT only) |
+| `lopoB__20260916_084401.json` | -- | Helsinki LOPO test (+79 neonates) |
 | `hardneg_20260914_145408.json` | 0.4404 +/- 0.0847 | hard-negative mining: 21.4 FA/h against 11.8 baseline |
 | `prior12_20260818_124735.json` | 0.7629 +/- 0.0253 | training prior 12% |
 | `prior036_20260818_142312.json` | 0.7411 +/- 0.0428 | training prior 3.6% |
