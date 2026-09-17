@@ -119,7 +119,7 @@ window-level AUC, which got three of these calls backwards.
 | **yes** | Fixed a bug in the seizure labels | biggest single change | rerun the identical pipeline before and after the fix: AUC 0.32 to 0.78 |
 | **yes** | Smoothing predictions over time | ~3x fewer false alarms | same saved predictions scored with and without smoothing |
 | **yes** | A threshold per patient | +0.139 sensitivity | swept a single global threshold over identical predictions; no setting reaches 0.886 at all |
-| **yes** | More patients *from the same cohort* | +0.10 event sensitivity | 16 to 22 CHB-MIT training patients, leave-one-patient-out |
+| **yes** | More patients *from the same cohort* | **+0.405** event sensitivity at 10 FA/h | 8 to 67 Helsinki training patients, fixed held-out test set. CHB-MIT gave +0.10 from 16 to 22, but it has only 23 subjects and cannot show more of the curve |
 | no | More patients from *other* hospitals | no reliable effect | two arms, same held-out patients, extra cohort pinned into training only. Siena: a trade. Helsinki: 0.789 to 0.813 sensitivity but 17.4 to 19.8 FA/h |
 | no | Rebalancing the classes (6 ways) | nothing | three models trained at 12% / 3.6% / 1.4% seizure on identical folds: 0.831 / 0.861 / 0.861 sensitivity, no trend |
 | no | A pretrained foundation model | worse | same folds and patients, only the architecture differs: 152 of 164 seizures against 135 of 164 |
@@ -155,6 +155,60 @@ at AUC 0.9995 on band power alone -- children against newborns, nine times the s
 rate, different equipment. Earlier versions of this file argued the diversity would help
 regardless. The measurement does not support that.
 
+## How far does patient count go?
+
+The one thing that reliably helps is more patients from the same cohort. CHB-MIT could
+not say how far that goes: it has 23 subjects, so 22 is the largest training set it can
+ever provide, and two points do not show a curve.
+
+Helsinki has 46 babies with seizures. Training on 8, 16, 32 and 67 patients against a
+fixed held-out set of 12, scored on events at matched false-alarm rates:
+
+| training patients | 5 FA/h | 10 FA/h | 20 FA/h | 40 FA/h |
+|---|---|---|---|---|
+| 8 | 0.152 | 0.152 | 0.519 | 0.684 |
+| 16 | 0.361 | 0.411 | 0.513 | 0.646 |
+| 32 | -- | 0.418 | 0.551 | 0.703 |
+| **67** | **0.519** | **0.557** | **0.646** | 0.677 |
+
+Two things follow, and the second is the useful one.
+
+**It is still climbing at 67.** No ceiling is visible, so the 23 subjects of CHB-MIT are
+the shallow end of this curve rather than most of it.
+
+**The benefit is entirely at low false-alarm rates.** Going from 8 patients to 67 is worth
+**+0.405 at 10 FA/h** and **-0.006 at 40 FA/h**. When the detector is already alarming
+every 90 seconds, more patients buy nothing; the gain appears exactly where a detector
+would have to operate to be useful. Every earlier measurement in this project was taken
+at one operating point, which would have hidden this.
+
+Subsets are nested and the seizure-bearing to background-only mix is held constant, so the
+curve measures adding patients rather than resampling them.
+
+## The same method on a different population
+
+The Helsinki model is trained and tested only on newborns -- a separate detector, not a
+merge. Compared with CHB-MIT under the **same** global-threshold scoring, so the method is
+held fixed and only the population changes:
+
+| | at ~10 FA/h |
+|---|---|
+| CHB-MIT, children | **0.747** |
+| Helsinki, newborns | **0.557** |
+
+The headline 94% is not comparable with either: it uses per-patient thresholds,
+personalisation and SzCORE event rules, none of which are applied above.
+
+**And per-patient thresholds cannot be used on neonates at all.** They are calibrated on a
+seizure-free stretch before a patient's first seizure, and NICU recordings do not have
+one: monitoring starts *because* the baby is already seizing. Of 12 held-out babies, four
+have zero background windows before their first seizure -- HEL07's begins 28 seconds in --
+and one has no usable split at all.
+
+That component is worth +0.139 on CHB-MIT. It is the second-largest positive result in
+this project, and it depends on a recording protocol that the intended clinical setting
+does not follow.
+
 ## Three things that fooled us
 
 **AUC got three decisions backwards.** It ranks single windows, but a detector is judged
@@ -183,7 +237,9 @@ Full detail and every negative result: **[report.html](report.html)**.
   recordings flagged. The average describes almost nobody.
 - **5 of 24 patients are personalised** on one of their own earlier seizures. A patient
   with no recorded seizure does worse.
-- **Only CHB-MIT patients are scored.** Siena and Helsinki are training data only.
+- **Per-patient thresholds need a seizure-free baseline**, which neonatal recordings do
+  not have. The method's second-biggest win is unavailable in the NICU.
+- **Siena has never been scored on its own patients.** CHB-MIT and Helsinki have.
 
 ## Files
 
