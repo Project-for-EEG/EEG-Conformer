@@ -185,29 +185,53 @@ at one operating point, which would have hidden this.
 Subsets are nested and the seizure-bearing to background-only mix is held constant, so the
 curve measures adding patients rather than resampling them.
 
-## The same method on a different population
+## One detector per population
 
-The Helsinki model is trained and tested only on newborns -- a separate detector, not a
-merge. Compared with CHB-MIT under the **same** global-threshold scoring, so the method is
-held fixed and only the population changes:
+Three separate models, each trained and scored only on its own cohort. Not a merge --
+merging was tested and did not work.
 
-| | at ~10 FA/h |
-|---|---|
-| CHB-MIT, children | **0.747** |
-| Helsinki, newborns | **0.557** |
+With the full pipeline, where the data supports it:
 
-The headline 94% is not comparable with either: it uses per-patient thresholds,
-personalisation and SzCORE event rules, none of which are applied above.
+| cohort | seizures caught | FA/h | events |
+|---|---|---|---|
+| CHB-MIT, children | 94.0% | 5.2 | 168 |
+| Siena, adults | 93.9% | 5.2 | 33 |
+| Helsinki, newborns | *cannot run* | | |
 
-**And per-patient thresholds cannot be used on neonates at all.** They are calibrated on a
+With one global threshold for all three, so the method is held fixed and only the
+population changes:
+
+| cohort | 5 FA/h | 10 FA/h | 20 FA/h | events |
+|---|---|---|---|---|
+| **Siena, adults** | **0.727** | **0.879** | **0.970** | 33 |
+| CHB-MIT, children | 0.524 | 0.741 | 0.867 | 166 |
+| Helsinki, newborns | 0.519 | 0.557 | 0.646 | 158 |
+
+**Siena wins on 13 training patients.** That contradicts the patient-count curve above,
+which predicted 13 patients would land near the bottom. Adult epilepsy-monitoring data
+appears easier in ways that outweigh having fewer subjects: long recordings, clean
+seizure morphology, less movement artifact than children produce.
+
+**Read Siena's row with care.** 33 events against CHB-MIT's 168. Two missed seizures move
+it by 6 points, so the ordering between Siena and CHB-MIT is not established. Helsinki's
+158 events make its row the firmest of the three, and it is clearly the hardest cohort.
+
+### Per-patient thresholds cannot be used on newborns
+
+The full pipeline does not run on Helsinki at all. Thresholds are calibrated on a
 seizure-free stretch before a patient's first seizure, and NICU recordings do not have
 one: monitoring starts *because* the baby is already seizing. Of 12 held-out babies, four
 have zero background windows before their first seizure -- HEL07's begins 28 seconds in --
-and one has no usable split at all.
+and one has no usable split.
 
-That component is worth +0.139 on CHB-MIT. It is the second-largest positive result in
-this project, and it depends on a recording protocol that the intended clinical setting
-does not follow.
+That component is worth +0.139 on CHB-MIT, the second-largest positive result here. It
+depends on a recording protocol the neonatal setting does not follow, which is a limit on
+the method rather than on the model.
+
+Siena has the opposite profile: 12 of its 14 patients have thousands of background windows
+before their first seizure. PN07 and PN11 have a single seizure each, so nothing remains
+to test on once one is spent on adaptation, and they are skipped -- as CHB03 and CHB05 are
+on CHB-MIT.
 
 ## Three things that fooled us
 
@@ -239,7 +263,7 @@ Full detail and every negative result: **[report.html](report.html)**.
   with no recorded seizure does worse.
 - **Per-patient thresholds need a seizure-free baseline**, which neonatal recordings do
   not have. The method's second-biggest win is unavailable in the NICU.
-- **Siena has never been scored on its own patients.** CHB-MIT and Helsinki have.
+- **Siena's own-cohort result rests on 33 events.** CHB-MIT has 168, Helsinki 158.
 
 ## Files
 
