@@ -252,7 +252,27 @@ babies independently. So "when did the seizure start" is a judgement, not a fact
 is why training on the most confusing background made things worse. Those windows sit
 next to seizures because they partly *are* seizures.
 
-Full detail and every negative result: **[report.html](report.html)**.
+## What is left
+
+Sixteen interventions, twelve of them null or negative, is enough to say the easy
+directions are exhausted. What remains:
+
+**More patients from the same cohort.** The only lever still climbing, and the only one
+with a measured curve. CHB-MIT is out of patients at 23, so this needs data we do not
+have -- a larger paediatric epilepsy-monitoring corpus, or TUH for adults.
+
+**Longer temporal context, done properly.** Windows are classified in 4-second isolation,
+which discards what separates a seizure from a transient artifact. A cheap version was
+tested here, learning a filter over the probability sequence, and did not beat the
+existing moving average at matched false alarms. Systems reporting false alarms per *day*
+use 60-80 s of context inside the model rather than after it, which is a different and
+untried change.
+
+**Nothing on the model.** Capacity, architecture and a 4.9M-parameter pretrained backbone
+were all tested. All neutral or worse.
+
+The honest summary is that this project's results are about data and measurement, not
+architecture, and the remaining data lever requires patients nobody here has.
 
 ## Limitations
 
