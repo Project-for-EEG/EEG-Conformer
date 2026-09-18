@@ -390,10 +390,12 @@ li::marker  {
           <tr><td><span class="mk mk-bad"></span>Rolling threshold recalibration</td><td class="effect">worse on both sensitivity and false alarms</td></tr>
           <tr><td><span class="mk mk-bad"></span>Pretrained foundation model (CBraMod)</td><td class="effect">0.104 lower event sensitivity, more false alarms</td></tr>
           <tr><td><span class="mk mk-yes"></span>Six more training patients (leave-one-patient-out)</td><td class="effect">+0.10 event sensitivity, fewer false alarms</td></tr>
-          <tr><td><span class="mk mk-null"></span>14 patients from a second hospital (Siena)</td><td class="effect">34% fewer false alarms, ~2 points less sensitivity</td></tr>
+          <tr><td><span class="mk mk-null"></span>14 patients from a second hospital (Siena)</td><td class="effect">a trade, no net gain</td></tr>
+          <tr><td><span class="mk mk-null"></span>79 newborns from a third hospital (Helsinki)</td><td class="effect">no reliable effect at 23 folds</td></tr>
           <tr><td><span class="mk mk-bad"></span>Dropping 3 of 23 channels (FT9/FT10)</td><td class="effect">0.109 lower event sensitivity, though AUC said +0.026</td></tr>
           <tr><td><span class="mk mk-bad"></span>Hard-negative mining (50% hardest background)</td><td class="effect">false alarms 11.8 to 21.4 per hour</td></tr>
           <tr class="is-yes"><td><span class="mk mk-yes"></span>Per-patient decision thresholds</td><td class="effect">+0.139 event sensitivity over any global threshold</td></tr>
+          <tr class="is-yes"><td><span class="mk mk-yes"></span>More patients from the <em>same</em> cohort</td><td class="effect">+0.405 event sensitivity at 10 FA/h, 8 to 67 patients</td></tr>
         </tbody>
       </table>
     </div>
@@ -436,7 +438,7 @@ li::marker  {
   </section>
 
   <section>
-    <h2>Five things that fooled the measurements</h2>
+    <h2>Six things that fooled the measurements</h2>
     <p>The most transferable findings here are about measurement, not modelling. Each of these produced a confidently wrong number before it was caught.</p>
 
     <h3>Counting alarm runs is gameable</h3>
@@ -452,6 +454,9 @@ li::marker  {
     <h3>AUC got three separate decisions backwards</h3>
     <p>It rated dropping three channels at +0.026 when the true event cost was -0.109; rated adding the Siena cohort at -0.029 when the event gain was +0.084; and rated CBraMod at +0.001 when it catches 17 fewer seizures. AUC ranks windows in isolation, but a seizure is caught if <em>any</em> window inside it clears threshold, and an alarm is false based on runs of neighbouring windows. Neither survives being averaged into a rank. Every headline number in this project is now event-level.</p>
 
+    <h3>A 3-fold screen overstated a result by 6x</h3>
+    <p>Helsinki was screened at 3 folds and gained +0.145 event sensitivity, +0.27 at 10 FA/h. At 23 folds the same comparison gives <strong>+0.024</strong>, and the low-false-alarm advantage disappears. Fold assignment alone swings results here by about +/-0.08, which this project had already documented, and the screen's result sat inside that. It was reported as a clear win anyway. Screens decide what to run properly; they are not results.</p>
+
     <h3>The scorer changes the answer by 3.4x</h3>
     <p>Identical predictions score 14.9 FA/h under a strict rule and 4.4 FA/h under SzCORE event rules (90 s merging, 30/60 s tolerance). Sensitivity moves too, 78% to 83%. Published false-alarm rates are not comparable unless the scorer is named.</p>
   </section>
@@ -464,6 +469,40 @@ li::marker  {
 
     <h2>Per-patient thresholds are worth more than any model change except the label fix</h2>
     <p>Fitted on each patient's own earlier recording, never the test period. Against a single global threshold over identical predictions: <strong>0.886 sensitivity at 14.4 FA/h</strong> versus <strong>0.747 at 10.0</strong>. That is <strong>+0.139</strong>, 23 more seizures out of 166, and no global threshold reaches 0.886 at any setting without flagging so much of the recording that the detector stops detecting. The calibrated thresholds span 0.036 to 0.998 across 24 patients.</p>
+
+    <h2>How far does patient count go?</h2>
+    <p>More patients from the same cohort is the one lever that reliably works. CHB-MIT cannot say how far it goes: with 23 subjects, 22 is the largest training set it can ever provide, and two points do not show a curve. Helsinki has 46 babies with seizures, so the curve can be drawn -- 8, 16, 32 and 67 training patients against a fixed held-out set of 12, scored on events at matched false-alarm rates.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>training patients</th><th class="num">5 FA/h</th><th class="num">10 FA/h</th><th class="num">20 FA/h</th><th class="num">40 FA/h</th></tr></thead>
+        <tbody>
+          <tr><td>8</td><td class="num">0.152</td><td class="num">0.152</td><td class="num">0.519</td><td class="num">0.684</td></tr>
+          <tr><td>16</td><td class="num">0.361</td><td class="num">0.411</td><td class="num">0.513</td><td class="num">0.646</td></tr>
+          <tr><td>32</td><td class="num">--</td><td class="num">0.418</td><td class="num">0.551</td><td class="num">0.703</td></tr>
+          <tr class="is-yes"><td><strong>67</strong></td><td class="num">0.519</td><td class="num">0.557</td><td class="num">0.646</td><td class="num">0.677</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>It is still climbing at 67</strong>, so CHB-MIT's 23 subjects are the shallow end of this curve rather than most of it. And the benefit is <strong>entirely at low false-alarm rates</strong>: going from 8 patients to 67 is worth <strong>+0.405 at 10 FA/h</strong> and <strong>-0.006 at 40</strong>. When the detector already alarms every 90 seconds, more patients buy nothing. The gain appears exactly where a detector would have to operate to be useful, and every earlier measurement in this project was taken at a single operating point, which would have hidden it.</p>
+
+    <h2>One detector per population</h2>
+    <p>Three separate models, each trained and scored only on its own cohort. Merging was tested twice and did not work. With one global threshold applied to all three, so the method is held fixed and only the population changes:</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>cohort</th><th class="num">5 FA/h</th><th class="num">10 FA/h</th><th class="num">20 FA/h</th><th class="num">seizures</th></tr></thead>
+        <tbody>
+          <tr class="is-yes"><td><strong>Siena, adults</strong></td><td class="num">0.727</td><td class="num">0.879</td><td class="num">0.970</td><td class="num">33</td></tr>
+          <tr><td>CHB-MIT, children</td><td class="num">0.524</td><td class="num">0.741</td><td class="num">0.867</td><td class="num">166</td></tr>
+          <tr><td>Helsinki, newborns</td><td class="num">0.519</td><td class="num">0.557</td><td class="num">0.646</td><td class="num">158</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Siena wins on 13 training patients</strong>, which the curve above predicted should land near the bottom. Adult epilepsy-monitoring data appears easier in ways that outweigh subject count: long recordings, clean seizure morphology, less movement than children produce. The curve describes what happens <em>within</em> a cohort, not across them.</p>
+    <p class="note">Read Siena's row with care: 33 seizures against CHB-MIT's 166, so two misses move it by 6 points and the ordering with CHB-MIT is not established. Helsinki's 158 make it the firmest row, and the hardest cohort.</p>
+
+    <h2>Per-patient thresholds cannot be used on newborns</h2>
+    <p>The full pipeline does not run on Helsinki at all. Thresholds are calibrated on a seizure-free stretch before a patient's first seizure, and NICU recordings do not have one: monitoring starts <em>because</em> the baby is already seizing. Of 12 held-out babies, four have zero background windows before their first seizure -- HEL07's begins 28 seconds in -- and one has no usable split.</p>
+    <p>That component is worth +0.139 on CHB-MIT, the second-largest positive result here. It depends on a recording protocol that the neonatal setting does not follow, which is a limit on the method rather than on the model. Siena has the opposite profile: 12 of its 14 patients have thousands of background windows before their first seizure.</p>
 
     <h2>Where this sits</h2>
     <div class="scroll">
@@ -487,7 +526,8 @@ li::marker  {
     <h2>Limitations</h2>
     <ul>
       <li><strong>Not clinically usable.</strong> Continuous monitoring wants under 1 false alarm per hour; this is at 5.2.</li>
-      <li><strong>Cross-institution validation is one-directional.</strong> Siena patients are only ever training data, never held out, so nothing here says how the detector performs on adult Italian recordings.</li>
+      <li><strong>Per-patient thresholds need a seizure-free baseline</strong>, which neonatal recordings do not have. The method's second-biggest component is unavailable in the NICU.</li>
+      <li><strong>Siena's own-cohort result rests on 33 seizures.</strong> CHB-MIT has 166, Helsinki 158.</li>
       <li><strong>Personalisation is part of the method.</strong> 5 of 24 patients were fine-tuned on one of their own earlier seizures, evaluated only on later ones. For a patient with no recorded seizure, the base model applies and performance is lower.</li>
       <li><strong>One hospital, 24 patients, all paediatric.</strong> No cross-institution validation.</li>
       <li><strong>Three folds is too few</strong> given the +/-8-point grouping variance. Leave-one-patient-out would be needed to resolve anything smaller.</li>
