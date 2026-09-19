@@ -235,11 +235,24 @@ on CHB-MIT.
 
 ## Three things that fooled us
 
+These were found the hard way, by getting them wrong first. **None is a new discovery** --
+each was already established in the literature, and the references are given so a reader
+can go to the stronger source. They are kept here because the failure modes are concrete,
+measured on this pipeline, and worth knowing before trusting any number in a seizure paper,
+including this one.
+
 **AUC got three decisions backwards.** It ranks single windows, but a detector is judged
 on catching a *seizure* and on false alarms -- both properties of runs of windows.
 Measured on AUC, dropping three channels looked free (it cost 0.109 sensitivity), adding
 Siena looked harmful (it helped), a foundation model looked equal (it is worse). Every
 number here is now event-level.
+
+> Established work: **NeuroAtlas** (42 datasets, 260,000 h) makes event-level sensitivity
+> over 0.1-100 FA/h its primary metric and shows window AUROC and event sensitivity rank
+> models differently, Spearman rho 0.61 to 0.81 across seven cohorts -- with the weakest
+> agreement on Helsinki and Siena, two of the three used here. The **SzCORE Challenge**
+> found that across 28 algorithms, "nearly all strongly overestimated their performance"
+> against an independent test set.
 
 **A 3-fold screen overstated a result by 6x.** The Helsinki cohort was screened at 3 folds
 and gained +0.145 sensitivity, +0.27 at 10 FA/h. At 23 folds the same comparison gives
@@ -251,6 +264,24 @@ that. Screens are for deciding what to run properly, not for reporting.
 babies independently. So "when did the seizure start" is a judgement, not a fact -- which
 is why training on the most confusing background made things worse. Those windows sit
 next to seizures because they partly *are* seizures.
+
+> Established work: **Stevenson et al. 2015** measured interobserver agreement for neonatal
+> seizure detection directly. **Abdi et al. 2025** compare consensus strategies -- unanimous,
+> majority, any -- against class imbalance and rater count, and recommend reporting
+> practice for neonatal detectors.
+
+### What this project does not claim
+
+The cohorts being near-perfectly separable (AUC 0.9995) is reported more sharply elsewhere,
+at AUROC 1.000 from frozen foundation-model embeddings. The patient-count curve is a small
+version of a scaling study run on 332 patients and 52,959 hours. Per-patient failure
+analysis is covered by the SzCORE Challenge across 28 algorithms and 65 subjects, which
+found hard seizures are shorter (median 48 s against 118 s) and that 23% of subjects scored
+F1 = 0 for every top-5 algorithm.
+
+One observation here was not found in the literature: **per-patient threshold calibration
+is unavailable in neonatal recordings**, because EEG is ordered once seizures are already
+suspected and there is no seizure-free baseline to calibrate on. That is described above.
 
 ## What is left
 
@@ -307,8 +338,25 @@ scripts above download and convert them.
 
 ## References
 
+**Methods and data**
+
 Song et al., *EEG Conformer*, IEEE TNSRE 2022 | Wang et al., *CBraMod*, ICLR 2025 |
-Shoeb, MIT 2009 (CHB-MIT) | Stevenson et al., 2019 (Helsinki) | Dan et al., *SzCORE*, 2024
+Shoeb, MIT 2009 (CHB-MIT) | Detti et al., 2020 (Siena) | Stevenson et al.,
+*A dataset of neonatal EEG recordings with seizure annotations*, Sci Data 2019 (Helsinki)
+
+**Evaluation and prior findings this work reproduces**
+
+- Dan et al., *SzCORE: A Seizure Community Open-source Research Evaluation framework*, 2024
+- *Quantifying the Generalization Gap in Seizure Detection: the SzCORE Challenge*,
+  arXiv 2505.18191 -- 28 algorithms, best 37% sensitivity at 1.34 FP/day
+- *NeuroAtlas: Benchmarking Foundation Models for Clinical EEG*, arXiv 2605.14698 --
+  event-level sensitivity at fixed FA/h as the primary metric
+- Pale et al., *Scaling convolutional neural networks achieves expert level seizure
+  detection in neonatal EEG*, npj Digital Medicine 2025 -- 332 patients, 52,959 h
+- Stevenson et al., *Interobserver agreement for neonatal seizure detection using
+  multichannel EEG*, Ann Clin Transl Neurol 2015
+- *Generalization or mirage? Data leakage and reported performance in neonatal EEG
+  seizure detection models*, BioData Mining 2025
 
 ## License
 
