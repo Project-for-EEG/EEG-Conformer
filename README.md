@@ -22,6 +22,10 @@ seizures happened.
 | Siena | 14 | 142 | adults, Italy | 0.6% |
 | Helsinki | 79 | 112 | newborns, Finland | 12.4% |
 
+CHB-MIT has 24 recording cases but 23 subjects. chb01 and chb21 are the same child,
+recorded 18 months apart. They are always held out together, so a split never puts one
+person on both sides. Counts of 24 elsewhere in this file refer to cases.
+
 EEG is a voltage trace per scalp electrode. A seizure is a burst of rhythmic activity
 across several of them. Everything else -- chewing, moving, sleep -- is background, and
 it is 99% of the recording.
@@ -71,6 +75,9 @@ CHB09    3 seizures, 3 found,  0.0 false alarms/hour
 CHB13   11 seizures, 11 found, 35.1 false alarms/hour
 ```
 
+Those two rows are the strict scorer, from `szcore_lopo.txt`. Under SzCORE rules the same
+predictions give CHB13 7.7 false alarms/hour.
+
 Pooled: how many seizures caught, and how often it cried wolf.
 
 ## 5. Run it
@@ -103,6 +110,8 @@ Needs a CUDA GPU and ~15 GB RAM.
 
 Scored with [SzCORE](https://epilepsybenchmarks.com) rules. A stricter scorer gives
 **89% at 14.4/hour** on identical predictions, so the scorer must always be named.
+The 94% is also not directly comparable with the other rows: it uses a threshold set per
+patient from their own earlier recording, and 5 of 24 patients are personalised.
 
 That last row is the calibration: **high sensitivity is cheap.** A 1982 rule-based
 detector hits 91% if you tolerate enough noise. Suppressing false alarms is the real
@@ -216,17 +225,19 @@ seizure morphology, less movement artifact than children produce.
 it by 6 points, so the ordering between Siena and CHB-MIT is not established. Helsinki's
 158 events make its row the firmest of the three, and it is clearly the hardest cohort.
 
-### Per-patient thresholds cannot be used on newborns
+### Per-patient thresholds cannot be used on Helsinki's newborns
 
 The full pipeline does not run on Helsinki at all. Thresholds are calibrated on a
-seizure-free stretch before a patient's first seizure, and NICU recordings do not have
-one: monitoring starts *because* the baby is already seizing. Of 12 held-out babies, four
+seizure-free stretch before a patient's first seizure, and these recordings often do not
+have one: monitoring started *because* seizures were already suspected. Of 12 held-out babies, four
 have zero background windows before their first seizure -- HEL07's begins 28 seconds in --
 and one has no usable split.
 
 That component is worth +0.139 on CHB-MIT, the second-largest positive result here. It
-depends on a recording protocol the neonatal setting does not follow, which is a limit on
-the method rather than on the model.
+depends on a recording protocol that monitoring started for suspected seizures does not
+follow, which is a limit on the method rather than on the model. It is not true of every
+newborn: babies cooled for hypoxic-ischemic encephalopathy are often monitored before their
+first seizure (Bernardo et al., Epilepsia 2025).
 
 Siena has the opposite profile: 12 of its 14 patients have thousands of background windows
 before their first seizure. PN07 and PN11 have a single seizure each, so nothing remains
@@ -279,9 +290,10 @@ analysis is covered by the SzCORE Challenge across 28 algorithms and 65 subjects
 found hard seizures are shorter (median 48 s against 118 s) and that 23% of subjects scored
 F1 = 0 for every top-5 algorithm.
 
-One observation here was not found in the literature: **per-patient threshold calibration
-is unavailable in neonatal recordings**, because EEG is ordered once seizures are already
-suspected and there is no seizure-free baseline to calibrate on. That is described above.
+One observation here is about recording protocol rather than modelling: **per-patient
+threshold calibration is unavailable when EEG is ordered because seizures are already
+suspected**, as in Helsinki, since there is no seizure-free baseline to calibrate on. That
+is described above.
 
 ## What is left
 
@@ -308,12 +320,15 @@ architecture, and the remaining data lever requires patients nobody here has.
 ## Limitations
 
 - **Not clinically usable** -- 5.2 false alarms/hour against the under-1 needed.
-- **Two patients dominate the false alarms.** CHB12 and CHB13 have 34% and 25% of their
+- **Two patients dominate the flagged time.** CHB12 and CHB13 have 34% and 25% of their
   recordings flagged. The average describes almost nobody.
+- **False alarms concentrate in a few patients.** CHB15 and CHB06 produce 35% of all
+  strict false alarms between them. CHB09 produces none.
 - **5 of 24 patients are personalised** on one of their own earlier seizures. A patient
   with no recorded seizure does worse.
-- **Per-patient thresholds need a seizure-free baseline**, which neonatal recordings do
-  not have. The method's second-biggest win is unavailable in the NICU.
+- **Per-patient thresholds need a seizure-free baseline**, which recordings started for
+  suspected seizures often do not have. The method's second-biggest win is unavailable on
+  Helsinki.
 - **Siena's own-cohort result rests on 33 events.** CHB-MIT has 168, Helsinki 158.
 
 ## Files

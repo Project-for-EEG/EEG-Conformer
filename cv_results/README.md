@@ -37,5 +37,7 @@ merge at -0.029 when the event gain was +0.084, and rated CBraMod at +0.001 when
 0.104 worse at catching seizures. Event-level numbers live in the top-level README.
 
 Note that AUC is a ranking measure, not the deployable number. The headline
-83% sensitivity at 4.4 FA/h is event-level and comes from
-`evaluate_end_to_end.py` plus `score_szcore.py`.
+94% sensitivity at 5.2 FA/h is event-level, from the leave-one-patient-out run scored
+by `evaluate_end_to_end.py` plus `score_szcore.py`. Its scored output is
+`szcore_lopo.txt` at the top level. The earlier 83% at 4.4 FA/h is the
+3-fold run, scored in `szcore_leakfree.txt` at the top level.

@@ -146,9 +146,15 @@ def main():
           f"{tot['z_fa']/h:.2f} FA/h  ({tot['z_fa']/h*24:.1f} FA/day)")
     print(f"\n2025 challenge winner on private data, same ruleset: "
           f"0.37 sensitivity at 1.34 FA/day")
-    print("caveat: our numbers allow 1-seizure-per-patient personalisation "
-          "and CHB01/CHB21 are same-subject-tainted until the leak-free "
-          "retrain lands")
+    print("caveat: our numbers allow 1-seizure-per-patient personalisation")
+    # CHB01 and CHB21 are the same child recorded 18 months apart. Both
+    # trainers keep them in one fold (SAME_SUBJECT in train_lopo.py and
+    # train_memory_efficient.py), so a split never puts one person on both
+    # sides. This line used to assert the opposite and stayed after the fix
+    # landed, which put a false leak warning in every scored output.
+    if {"CHB01", "CHB21"} <= set(data):
+        print("note: CHB01 and CHB21 are the same child. Both trainers hold "
+              "them out together, so they are not a same-subject leak.")
 
 
 if __name__ == "__main__":

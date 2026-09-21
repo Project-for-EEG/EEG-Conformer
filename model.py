@@ -1,5 +1,5 @@
 """
-EEG-Conformer: State-of-the-Art Model for EEG Seizure Detection
+EEG-Conformer model for EEG seizure detection
 
 Architecture combines:
 1. Temporal Convolutional Block - Captures local temporal patterns
