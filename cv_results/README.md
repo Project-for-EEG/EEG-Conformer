@@ -41,3 +41,29 @@ Note that AUC is a ranking measure, not the deployable number. The headline
 by `evaluate_end_to_end.py` plus `score_szcore.py`. Its scored output is
 `szcore_lopo.txt` at the top level. The earlier 83% at 4.4 FA/h is the
 3-fold run, scored in `szcore_leakfree.txt` at the top level.
+
+## Event-level scored outputs, at the top level
+
+These back every event-level number in the main README. The headline is
+patient-calibrated; the uncalibrated file is the same folds with no test-patient data.
+
+| file | what it is |
+|---|---|
+| `szcore_lopo.txt` | the headline, 94.0% at 5.16 FA/h (123.8/day), thresholds from each patient's own earlier recording, 5 of 24 cases personalised |
+| `szcore_lopo_uncalibrated.txt` | the same folds and the same windows with the threshold taken from the training patients only, base model throughout, no test-patient labels read: 78.0% at 5.47 FA/h (131.2/day) |
+| `szcore_official.txt` | the headline rescored with the official `timescoring` package instead of `score_szcore.py`, plus precision, F1, per-subject averages and fixed alarm budgets |
+| `szcore_leakfree.txt` | the earlier 3-fold run |
+| `szcore_results.txt` | the first SzCORE scoring, superseded |
+
+Two things to know when reading them.
+
+**Pooled against per subject.** `score_szcore.py` pools: every event counts once, so
+patients with many seizures weigh more. SzCORE's own convention averages each metric
+across subjects. Both are in `szcore_official.txt` and they differ, 94.0% pooled against
+97.0% per subject. The pooled figure is the one quoted, because it is the lower one.
+
+**The two scorers agree.** `timescoring` reproduces `score_szcore.py` exactly on these
+predictions, patient by patient. They would diverge on a dataset where two true seizures
+sit less than 90 s apart, because `timescoring` merges reference events closer than that
+and `score_szcore.py` does not. The smallest gap in this cache is 92 s, one window clear
+of the rule, which is luck rather than design. A future dataset could trip it.

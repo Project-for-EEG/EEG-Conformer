@@ -1,9 +1,27 @@
 """
-The whole pipeline, end to end, with nothing chosen using test data.
+The whole pipeline, end to end, with nothing chosen using the TEST PERIOD.
 
-Every headline number so far has used an oracle threshold -- picked knowing the
-test period. Useful for comparing models, not claimable as performance. This
-runs the real thing:
+Every headline number before this used an oracle threshold -- picked knowing
+the test period. Useful for comparing models, not claimable as performance.
+This runs the real thing.
+
+That is not the same as patient-independent, and the difference matters. Three
+things here read the held-out patient's own data, all of it from before the
+test period rather than from inside it:
+
+  - the threshold, picked from that patient's own adaptation background
+  - the base-versus-personalised decision, which checks the base model against
+    that patient's own first seizure, and so reads their labels, for all 24
+    cases and not only the ones that end up personalised
+  - the fine-tuning itself, for the cases that get it
+
+So results from this script are cross-patient trained and patient-calibrated.
+uncalibrated_lopo.py runs the same folds with the threshold taken from the
+training patients instead and no labels read at all, and the difference between
+the two is what the calibration is worth: 16.1 points of pooled event
+sensitivity.
+
+The pipeline:
 
     split chronologically -> calibrate on adaptation background -> decide
     base vs personalised -> apply to the test period -> measure
@@ -162,7 +180,8 @@ def main():
 
     print(f"target {args.target_fa} FA/hr | selective personalisation | "
           f"rolling window {args.roll_hours} h")
-    print("nothing below is chosen using test data\n")
+    print("thresholds below come from each patient's own earlier recording,\n"
+          "not from the training fold -- see uncalibrated_lopo.py\n")
     print(f"{'patient':8s} {'ev':>4s} {'model':>6s} {'fixed sens':>11s} "
           f"{'fixedFA':>8s} {'roll sens':>10s} {'rollFA':>8s}")
 

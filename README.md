@@ -1,10 +1,21 @@
 # Seizure Detection from Scalp EEG
 
-Finds epileptic seizures in EEG recordings, tested only on patients the model has
-never seen.
+Finds epileptic seizures in EEG recordings. Cross-patient trained, patient-calibrated:
+no test patient is in the training set, but each patient's alarm threshold is set from
+their own earlier recording.
 
-**94% of seizures found, 5.2 false alarms per hour**, over 170 hours of held-out
-recording.
+**94% of seizures found, 5.2 false alarms per hour (124 per day)**, over 170 hours of
+held-out recording. Pooled event sensitivity, SzCORE rules, `szcore_official.txt`.
+
+That number is **patient-calibrated, not patient-independent.** Every patient's
+threshold is picked from their own earlier recording, their own first-seizure labels
+decide whether to personalise, and 5 of 24 cases are then fine-tuned on one of their
+own earlier seizures.
+
+With none of that -- threshold from the training-fold patients only, base model
+throughout, no test-patient labels read anywhere -- the same models on the same windows
+give **78% at 5.5 false alarms per hour (131 per day)**, in
+`szcore_lopo_uncalibrated.txt`.
 
 Good sensitivity. The false-alarm rate is not good enough -- clinical use needs under
 1 per hour.
@@ -57,8 +68,11 @@ input   (23, 1024)            23 channels, 4 seconds
 output  2 numbers             seizure probability
 ```
 
-Trained by holding one patient out at a time. Nothing about the test patient is used
-in training.
+Trained by holding one patient out at a time, so no test patient is in any training
+set. Test-patient data is used after training, though: each patient's alarm threshold
+comes from their own earlier recording, their own first-seizure labels decide whether
+to personalise, and in 5 of 24 cases the model is then fine-tuned on that patient.
+Section 4 and Results say what that is worth.
 
 ## 4. Data out
 
@@ -104,14 +118,74 @@ Needs a CUDA GPU and ~15 GB RAM.
 | system | sensitivity | false alarms |
 |---|---|---|
 | 2025 SzCORE challenge winner *(private data)* | 37% | 1.3 / day |
-| Published CHB-MIT results | 75-85% | 1-5 / hour |
-| **This work** | **94%** | **5.2 / hour** |
-| Rule-based detector (Gotman, 1982) | 91% | ~10 / hour |
+| Published CHB-MIT results | 75-85% | 1-5 / hour (24-120 / day) |
+| **This work** *(patient-calibrated)* | **94%** | **5.2 / hour, 124 / day** |
+| **This work** *(no test-patient data)* | **78%** | **5.5 / hour, 131 / day** |
+| Rule-based detector (Gotman, 1982) | 91% | ~10 / hour (~240 / day) |
 
-Scored with [SzCORE](https://epilepsybenchmarks.com) rules. A stricter scorer gives
-**89% at 14.4/hour** on identical predictions, so the scorer must always be named.
-The 94% is also not directly comparable with the other rows: it uses a threshold set per
-patient from their own earlier recording, and 5 of 24 patients are personalised.
+Scored with [SzCORE](https://epilepsybenchmarks.com) rules, using the official
+`timescoring` package. It reproduces `score_szcore.py` exactly on these predictions, so
+the re-implementation is sound. A stricter scorer gives **89% at 14.4/hour** on
+identical predictions, so the scorer must always be named.
+
+Both rows above are pooled -- every event counted once, so patients with many seizures
+weigh more. SzCORE's own convention averages per subject, which gives **97%** and
+**86%** instead. Both are in the output files. The pooled number is quoted here because
+it is the lower one and the one already published.
+
+| | sensitivity | precision | F1 | FA/day |
+|---|---|---|---|---|
+| patient-calibrated, pooled | 0.940 | 0.152 | 0.262 | 123.8 |
+| patient-calibrated, per subject | 0.970 | 0.202 | 0.308 | 118.9 |
+| no test-patient data, pooled | 0.780 | 0.123 | 0.213 | 131.2 |
+| no test-patient data, per subject | 0.864 | 0.263 | 0.325 | 122.5 |
+
+**What calibration is worth, measured.** Pooled, per-patient thresholds plus
+personalisation are worth **16.1 points of event sensitivity**, 78.0% to 94.0%, and the
+uncalibrated run is worse on both axes -- lower sensitivity *and* more alarms, 131.2
+against 123.8 per day. Per subject the picture reverses: sensitivity still rises, 86.4%
+to 97.0%, but F1 falls 0.325 to 0.308, because calibration buys sensitivity by spending
+precision and that trade stops paying once every patient counts once. The two
+conventions point in different directions, and that is the finding.
+
+**What the calibrated row uses that the uncalibrated one does not.** A threshold from
+each patient's own earlier recording; that patient's own first-seizure labels to decide
+whether to personalise, which happens for all 24 cases and not only the 5; and
+fine-tuning on one of their own earlier seizures for those 5. The uncalibrated row reads
+no test-patient labels at all. Both score exactly the same windows: the test period
+still starts after each patient's first seizure, which is the one thing the uncalibrated
+run borrows, and it fixes where scoring begins rather than what the model or threshold
+does.
+
+### Sensitivity at a fixed alarm budget
+
+**These are oracle numbers.** One global threshold is swept over the test predictions
+and the best sensitivity inside each budget is kept, so the threshold is chosen knowing
+the test result. No deployable system reaches them. They bound what the model's ranking
+supports, nothing more.
+
+| budget | patient-calibrated | no test-patient data |
+|---|---|---|
+| 1 alarm / day | 4.8% | 3.0% |
+| 2 / day | 6.0% | 4.2% |
+| 5 / day | 8.3% | 17.3% |
+| 10 / day | 21.4% | 19.1% |
+
+Pooled. Per-subject rows are in `szcore_official.txt` and
+`szcore_lopo_uncalibrated.txt`.
+
+### How this compares
+
+As reported by those sources, not re-run here. SzCORE's own subject-independent CHB-MIT
+baselines are **67.1% sensitivity at 2.09 false alarms/day** for XGBoost and **37.0% at
+1.66/day** for a random forest. The 2025 SzCORE challenge winner reports **37% at 1.34
+false alarms/day**, on different data. Protocols differ, so these are not like-for-like:
+those are subject-independent, this work is patient-calibrated, and the challenge number
+comes from a held-out hospital nobody could tune against.
+
+The gap that matters is not sensitivity. It is the alarm rate. This work runs at roughly
+**90 times** their false-alarm rate. At a comparable budget of 1-2 alarms/day it reaches
+3-6%, even with an oracle threshold.
 
 That last row is the calibration: **high sensitivity is cheap.** A 1982 rule-based
 detector hits 91% if you tolerate enough noise. Suppressing false alarms is the real
@@ -201,11 +275,14 @@ merging was tested and did not work.
 
 With the full pipeline, where the data supports it:
 
-| cohort | seizures caught | FA/h | events |
-|---|---|---|---|
-| CHB-MIT, children | 94.0% | 5.2 | 168 |
-| Siena, adults | 93.9% | 5.2 | 33 |
-| Helsinki, newborns | *cannot run* | | |
+| cohort | seizures caught | FA/h | FA/day | events |
+|---|---|---|---|---|
+| CHB-MIT, children | 94.0% | 5.2 | 124 | 168 |
+| Siena, adults | 93.9% | 5.2 | 124 | 33 |
+| Helsinki, newborns | *cannot run* | | | |
+
+Both rows are patient-calibrated. Helsinki cannot run at all because these newborns have
+no seizure-free baseline to calibrate on.
 
 With one global threshold for all three, so the method is held fixed and only the
 population changes:
@@ -319,13 +396,18 @@ architecture, and the remaining data lever requires patients nobody here has.
 
 ## Limitations
 
-- **Not clinically usable** -- 5.2 false alarms/hour against the under-1 needed.
+- **Not clinically usable** -- 5.2 false alarms/hour, 124 per day, against the under-1
+  per hour needed. Subject-independent baselines elsewhere report 1-2 per day.
 - **Two patients dominate the flagged time.** CHB12 and CHB13 have 34% and 25% of their
   recordings flagged. The average describes almost nobody.
 - **False alarms concentrate in a few patients.** CHB15 and CHB06 produce 35% of all
   strict false alarms between them. CHB09 produces none.
-- **5 of 24 patients are personalised** on one of their own earlier seizures. A patient
+- **5 of 24 cases are personalised** on one of their own earlier seizures. A patient
   with no recorded seizure does worse.
+- **Test-patient labels are read for all 24 cases**, not only the 5. The decision whether
+  to personalise is made by checking the base model against that patient's own first
+  seizure. Removing it costs 16.1 points of pooled sensitivity, measured in
+  `szcore_lopo_uncalibrated.txt`.
 - **Per-patient thresholds need a seizure-free baseline**, which recordings started for
   suspected seizures often do not have. The method's second-biggest win is unavailable on
   Helsinki.
@@ -339,7 +421,9 @@ architecture, and the remaining data lever requires patients nobody here has.
 | `model.py`, `config.py` | the EEG-Conformer |
 | `train_lopo.py` | one model per held-out patient |
 | `train_memory_efficient.py` | faster 3-fold version, for screening ideas |
-| `evaluate_end_to_end.py` | full pipeline, nothing chosen using test data |
+| `evaluate_end_to_end.py` | full pipeline, thresholds from each patient's own recording |
+| `uncalibrated_lopo.py` | the same folds with thresholds from training patients only |
+| `score_official.py` | scoring with the official `timescoring` package |
 | `evaluate_temporal.py`, `score_szcore.py` | event-level and SzCORE scoring |
 | `calibrate_per_patient.py`, `finetune_per_patient.py` | thresholds and personalisation |
 | `check_domain_shift.py` | how separable two cohorts are |
