@@ -1,0 +1,5 @@
+numpy
+scipy
+einops
+mne
+epilepsy2bids

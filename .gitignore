@@ -75,3 +75,15 @@ compare_finetune.py
 sweep_operating_points.py
 cv_results/patient_cv_results_20260727_2107*.json
 cv_results/patient_cv_results_20260727_2301*.json
+
+# ---- SzCORE container build context ----
+# Docker cannot COPY from outside the build directory, so szcore_container/
+# holds copies of these five files. Only the repo-root originals are tracked,
+# so there is one source of truth and the image cannot be built from a stale
+# copy without it being obvious. Refresh them before building:
+#   cp config.py model.py siena_to_npz.py szcore_adapter.py szcore_run.py szcore_container/
+szcore_container/config.py
+szcore_container/model.py
+szcore_container/siena_to_npz.py
+szcore_container/szcore_adapter.py
+szcore_container/szcore_run.py
