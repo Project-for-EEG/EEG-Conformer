@@ -99,11 +99,24 @@ def main():
         for p in test:
             blocks.extend(probs_for(model, device, p))
 
+        # A 50-point linear grid was too coarse and silently misreported this
+        # curve. The 8-patient model had no operating point between 4.31 and
+        # 10.80 FA/h, so its "5 FA/h" and "10 FA/h" readings were the same
+        # point twice, and the 8-to-67 gain at 10 FA/h came out as +0.405 when
+        # it was really comparing 4.3 FA/h against 8.2. The alarm rate is a step
+        # function of the threshold and every step sits at some observed
+        # probability, so the grid is drawn from the data as well: quantiles of
+        # the probabilities concentrate points exactly where the rate moves.
+        probs_all = np.concatenate([b[0] for b in blocks])
+        grid = np.unique(np.concatenate([
+            np.linspace(0.02, 0.99, 200),
+            np.quantile(probs_all, np.linspace(0.50, 0.9999, 400)),
+        ]))
         pts = []
-        for t in np.linspace(0.02, 0.99, 50):
-            ev, hit, fa_hr, flagged = score(blocks, t)
+        for t in grid:
+            ev, hit, fa_hr, flagged = score(blocks, float(t))
             if flagged <= MAX_FLAGGED and ev:
-                pts.append((fa_hr, hit / ev, t))
+                pts.append((fa_hr, hit / ev, float(t)))
         curves[n] = sorted(pts)
         best = max(pts, key=lambda x: x[1]) if pts else None
         print("%2d patients (%2d with seizures): %d events, best sensitivity "
@@ -115,13 +128,25 @@ def main():
         torch.cuda.empty_cache()
 
     def at(pts, target):
-        ok = [p for p in pts if p[0] <= target]
-        return max(ok, key=lambda p: p[1])[1] if ok else None
+        """(sensitivity, the rate actually achieved) under a budget.
 
-    print("\nevent sensitivity at matched false-alarm rates")
+        The achieved rate is returned and printed, not just the sensitivity.
+        Hiding it is what let a comparison between 4.3 and 8.2 FA/h be reported
+        as if both sat at 10.
+        """
+        ok = [p for p in pts if p[0] <= target]
+        if not ok:
+            return None, None
+        best = max(ok, key=lambda p: p[1])
+        return best[1], best[0]
+
+    print("\nevent sensitivity under a false-alarm BUDGET")
+    print("each cell is sensitivity and the rate actually achieved, because a")
+    print("budget is a ceiling and two models under the same ceiling can sit at")
+    print("very different rates")
     targets = [2, 5, 10, 20, 40]
-    print("%-10s " % "patients" + " ".join("%8s" % ("%d FA/h" % t)
-                                           for t in targets))
+    print("\n%-10s " % "patients" + " ".join("%16s" % ("<= %d FA/h" % t)
+                                            for t in targets))
     rows = []
     for n in SIZES:
         if n not in curves:
@@ -129,16 +154,23 @@ def main():
         vals = [at(curves[n], t) for t in targets]
         rows.append((n, vals))
         print("%-10d " % n + " ".join(
-            "%8s" % ("%.3f" % v if v is not None else "-") for v in vals))
+            "%16s" % ("%.3f @ %.1f" % (s, a) if s is not None else "-")
+            for s, a in vals))
 
     print()
     for i, t in enumerate(targets):
-        seq = [(n, v[i]) for n, v in rows if v[i] is not None]
-        if len(seq) >= 2:
-            first, last = seq[0], seq[-1]
-            print("  at %2d FA/h: %d patients %.3f -> %d patients %.3f  (%+.3f)"
-                  % (t, first[0], first[1], last[0], last[1],
-                     last[1] - first[1]))
+        seq = [(n, v[i]) for n, v in rows if v[i][0] is not None]
+        if len(seq) < 2:
+            continue
+        (n0, (s0, a0)), (n1, (s1, a1)) = seq[0], seq[-1]
+        # Only call it a matched comparison when the two achieved rates are
+        # close. Otherwise the difference mixes training size with budget.
+        matched = abs(a1 - a0) <= 0.25 * max(a0, a1, 1e-9)
+        print("  under %2d FA/h: %d patients %.3f @ %.1f -> %d patients "
+              "%.3f @ %.1f  (%+.3f)%s"
+              % (t, n0, s0, a0, n1, s1, a1, s1 - s0,
+                 "" if matched else "   NOT MATCHED, rates differ by %.0f%%"
+                 % (100 * abs(a1 - a0) / max(a0, a1))))
 
     out = Path("cv_results") / ("helsinki_curve_events_%s.json"
                                 % datetime.now().strftime("%Y%m%d_%H%M%S"))

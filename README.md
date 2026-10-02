@@ -144,9 +144,14 @@ it is the lower one and the one already published.
 personalisation are worth **16.1 points of event sensitivity**, 78.0% to 94.0%, and the
 uncalibrated run is worse on both axes -- lower sensitivity *and* more alarms, 131.2
 against 123.8 per day. Per subject the picture reverses: sensitivity still rises, 86.4%
-to 97.0%, but F1 falls 0.325 to 0.308, because calibration buys sensitivity by spending
-precision and that trade stops paying once every patient counts once. The two
-conventions point in different directions, and that is the finding.
+to 97.0%, and that gain is significant -- paired Wilcoxon p = 0.028 over the 24 cases.
+Mean per-subject F1 falls 0.325 to 0.308, but that difference is **not** significant:
+p = 0.790, the median difference is +0.010 the other way, and calibration is better in
+14 of 24 cases. The negative mean comes from four cases where the training-fold
+threshold nearly silences the detector, so CHB19 and CHB20 score precision 1.000 at
+0.00 FA/h by barely firing at all. An earlier version of this file called that reversal
+a finding. It is not one: read per subject, calibration buys sensitivity and the F1
+effect is not measurable in either direction.
 
 **What the calibrated row uses that the uncalibrated one does not.** A threshold from
 each patient's own earlier recording; that patient's own first-seizure labels to decide
@@ -202,7 +207,7 @@ window-level AUC, which got three of these calls backwards.
 | **yes** | Fixed a bug in the seizure labels | biggest single change | rerun the identical pipeline before and after the fix: AUC 0.32 to 0.78 |
 | **yes** | Smoothing predictions over time | ~3x fewer false alarms | same saved predictions scored with and without smoothing |
 | **yes** | A threshold per patient | +0.139 sensitivity | swept a single global threshold over identical predictions; no setting reaches 0.886 at all |
-| **yes** | More patients *from the same cohort* | **+0.405** event sensitivity at 10 FA/h | 8 to 67 Helsinki training patients, fixed held-out test set. CHB-MIT gave +0.10 from 16 to 22, but it has only 23 subjects and cannot show more of the curve |
+| **yes** | More patients *from the same cohort* | **+0.304** event sensitivity at a matched ~4.4 FA/h | 8 to 67 Helsinki training patients, fixed held-out test set, monotonic across all four sizes. CHB-MIT gave +0.10 from 16 to 22, but it has only 23 subjects and cannot show more of the curve |
 | no | More patients from *other* hospitals | no reliable effect | two arms, same held-out patients, extra cohort pinned into training only. Siena: a trade. Helsinki: 0.789 to 0.813 sensitivity but 17.4 to 19.8 FA/h |
 | no | Rebalancing the classes (6 ways) | nothing | three models trained at 12% / 3.6% / 1.4% seizure on identical folds: 0.831 / 0.861 / 0.861 sensitivity, no trend |
 | no | A pretrained foundation model | worse | same folds and patients, only the architecture differs: 152 of 164 seizures against 135 of 164 |
@@ -245,25 +250,37 @@ not say how far that goes: it has 23 subjects, so 22 is the largest training set
 ever provide, and two points do not show a curve.
 
 Helsinki has 46 babies with seizures. Training on 8, 16, 32 and 67 patients against a
-fixed held-out set of 12, scored on events at matched false-alarm rates:
+fixed held-out set of 12, scored on events under false-alarm budgets:
 
-| training patients | 5 FA/h | 10 FA/h | 20 FA/h | 40 FA/h |
-|---|---|---|---|---|
-| 8 | 0.152 | 0.152 | 0.519 | 0.684 |
-| 16 | 0.361 | 0.411 | 0.513 | 0.646 |
-| 32 | -- | 0.418 | 0.551 | 0.703 |
-| **67** | **0.519** | **0.557** | **0.646** | 0.677 |
+Each cell is sensitivity and **the false-alarm rate actually achieved**. A budget is a
+ceiling, and two models under the same ceiling can sit at very different rates, so the
+achieved rate has to be printed or the comparison cannot be checked.
 
-Two things follow, and the second is the useful one.
+| training patients | <= 2 FA/h | <= 5 FA/h | <= 10 FA/h | <= 20 FA/h | <= 40 FA/h |
+|---|---|---|---|---|---|
+| 8 | 0.025 @ 1.6 | 0.215 @ 4.6 | 0.392 @ 9.9 | 0.519 @ 18.9 | 0.684 @ 30.6 |
+| 16 | 0.316 @ 1.6 | 0.361 @ 4.7 | 0.411 @ 9.6 | 0.532 @ 19.9 | 0.646 @ 29.8 |
+| 32 | 0.354 @ 1.9 | 0.399 @ 4.3 | 0.437 @ 9.5 | 0.570 @ 19.3 | 0.715 @ 27.1 |
+| **67** | **0.468 @ 1.1** | **0.519 @ 4.3** | **0.557 @ 7.9** | **0.652 @ 19.2** | **0.728 @ 26.0** |
 
-**It is still climbing at 67.** No ceiling is visible, so the 23 subjects of CHB-MIT are
-the shallow end of this curve rather than most of it.
+Three things follow.
 
-**The benefit is entirely at low false-alarm rates.** Going from 8 patients to 67 is worth
-**+0.405 at 10 FA/h** and **-0.006 at 40 FA/h**. When the detector is already alarming
-every 90 seconds, more patients buy nothing; the gain appears exactly where a detector
-would have to operate to be useful. Every earlier measurement in this project was taken
-at one operating point, which would have hidden this.
+**It is still climbing at 67**, at every budget, and the curve is monotonic in training
+size throughout. No ceiling is visible, so the 23 subjects of CHB-MIT are the shallow end
+of this curve rather than most of it.
+
+**The benefit is largest at tight budgets and shrinks as they loosen.** Going from 8
+patients to 67 is worth **+0.304 at a matched ~4.4 FA/h**, +0.165 at ~9 FA/h, and
+**+0.044 at ~28 FA/h**. More data still helps a permissive detector, just barely.
+
+**An earlier version of this table was wrong, and the error was a measurement artifact.**
+It swept 50 thresholds, which left the 8-patient model with no operating point between
+4.31 and 10.80 FA/h, so its 5 and 10 FA/h cells were the same point read twice. The
+8-to-67 gain was reported as +0.405 at 10 FA/h when it was really comparing 4.3 FA/h
+against 8.2, and the 40 FA/h cell was reported as -0.006 while comparing 30.7 FA/h
+against 22.7. The sweep now draws 600 thresholds from the data, every cell prints its
+achieved rate, and the script flags any comparison whose rates differ by more than 25%.
+The headline was overstated 2.5x; the shape of the curve was not.
 
 Subsets are nested and the seizure-bearing to background-only mix is held constant, so the
 curve measures adding patients rather than resampling them.
