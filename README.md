@@ -202,12 +202,21 @@ Every comparison below is **paired**: same folds, same held-out patients, one va
 changed. All are scored on *events* (seizures caught, false alarms per hour), never on
 window-level AUC, which got three of these calls backwards.
 
+**One seed, except where stated.** Only the patient-count row has been repeated at more
+than one seed, and when it was, the gain moved from +0.304 to a range of 0.03 to 0.31.
+So read every other effect size here as a single draw. The nulls are the safer half of
+the table -- an effect large enough to beat that much variance would probably have shown
+up anyway -- but any single positive number could be smaller or larger than stated. The
+CHB-MIT rows are less exposed than the Helsinki one, because leave-one-patient-out folds
+are deterministic there (`train_lopo.py` holds out every subject in a fixed order), so a
+seed changes only the initialisation and not which patients are tested.
+
 | | what | effect | how we know |
 |---|---|---|---|
 | **yes** | Fixed a bug in the seizure labels | biggest single change | rerun the identical pipeline before and after the fix: AUC 0.32 to 0.78 |
 | **yes** | Smoothing predictions over time | ~3x fewer false alarms | same saved predictions scored with and without smoothing |
 | **yes** | A threshold per patient | +0.139 sensitivity | swept a single global threshold over identical predictions; no setting reaches 0.886 at all |
-| **yes** | More patients *from the same cohort* | **+0.304** event sensitivity at a matched ~4.4 FA/h | 8 to 67 Helsinki training patients, fixed held-out test set, monotonic across all four sizes. CHB-MIT gave +0.10 from 16 to 22, but it has only 23 subjects and cannot show more of the curve |
+| **yes** | More patients *from the same cohort* | direction yes, size unclear: **+0.22 event sensitivity, range 0.03 to 0.31** across three seeds at a matched ~4.6 FA/h | 8 to 67 Helsinki training patients, three seeds. Positive in 14 of 15 budget-by-seed cells. The seed also picks the held-out babies, so each seed is a near-independent experiment on 12 infants with 158, 104 and 70 events |
 | no | More patients from *other* hospitals | no reliable effect | two arms, same held-out patients, extra cohort pinned into training only. Siena: a trade. Helsinki: 0.789 to 0.813 sensitivity but 17.4 to 19.8 FA/h |
 | no | Rebalancing the classes (6 ways) | nothing | three models trained at 12% / 3.6% / 1.4% seizure on identical folds: 0.831 / 0.861 / 0.861 sensitivity, no trend |
 | no | A pretrained foundation model | worse | same folds and patients, only the architecture differs: 152 of 164 seizures against 135 of 164 |
@@ -265,13 +274,39 @@ achieved rate has to be printed or the comparison cannot be checked.
 
 Three things follow.
 
-**It is still climbing at 67**, at every budget, and the curve is monotonic in training
-size throughout. No ceiling is visible, so the 23 subjects of CHB-MIT are the shallow end
-of this curve rather than most of it.
+The table above is one seed. Repeating the whole curve at two more seeds shows the
+direction is solid and **the magnitude is not**:
 
-**The benefit is largest at tight budgets and shrinks as they loosen.** Going from 8
-patients to 67 is worth **+0.304 at a matched ~4.4 FA/h**, +0.165 at ~9 FA/h, and
-**+0.044 at ~28 FA/h**. More data still helps a permissive detector, just barely.
+| budget | seed 42 | seed 43 | seed 44 | mean | range |
+|---|---|---|---|---|---|
+| <= 2 FA/h | +0.443 | **-0.019** | +0.286 | +0.237 | 0.462 |
+| <= 5 FA/h | +0.304 | +0.029 | +0.314 | +0.216 | 0.285 |
+| <= 10 FA/h | +0.165 | +0.058 | +0.314 | +0.179 | 0.257 |
+| <= 20 FA/h | +0.133 | +0.087 | +0.343 | +0.187 | 0.256 |
+| <= 40 FA/h | +0.044 | +0.096 | +0.057 | **+0.066** | **0.052** |
+
+**More patients helps, and how much is not measurable here.** The gain from 8 to 67 is
+positive in 14 of 15 cells, so the direction holds. But at the headline budget the three
+seeds give +0.304, +0.029 and +0.314 -- a spread almost as wide as the effect -- and at
+the tightest budget one seed is negative. The honest figure is **+0.22 with a range of
+0.03 to 0.31**, not the +0.304 an earlier version of this file reported as a point
+estimate.
+
+Two things make it this noisy, and both are the design rather than the model. The seed
+chooses the held-out babies as well as the initialisation (`helsinki_curve.py:162` passes
+it to `split_patients`), so seeds 42 and 43 share only 3 of their 12 test babies. And the
+three test sets contain 158, 104 and 70 events, so these are three small experiments
+rather than three readings of one.
+
+**The shape is better evidenced than the size.** That the benefit shrinks as the budget
+loosens is the most robust thing in the table: at 40 FA/h the mean gain is +0.066 with a
+spread of 0.052, against spreads near 0.26 everywhere tighter. More data buys progressively
+less as a detector is allowed to alarm more freely, and that holds across every seed.
+
+**It is still climbing at 67** in each seed taken alone, and the curve is monotonic in
+training size for seed 42. No ceiling is visible, so the 23 subjects of CHB-MIT are the
+shallow end of this curve rather than most of it -- though with this much seed variance,
+"still climbing" is a direction and not a slope.
 
 **An earlier version of this table was wrong, and the error was a measurement artifact.**
 It swept 50 thresholds, which left the 8-patient model with no operating point between

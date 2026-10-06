@@ -79,14 +79,29 @@ def score(blocks, thresh):
 
 
 def main():
+    # Seed 42 was the only run for a long time, so the seed and the checkpoint
+    # tag were hardcoded. The curve is now measured at several seeds to put an
+    # uncertainty on it, and --seed must pick BOTH the checkpoints and the
+    # held-out babies: helsinki_curve.split_patients is seeded, so each seed
+    # holds out a different 12. Scoring seed 43's models against seed 42's test
+    # babies would score them on data they trained on.
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--tag", default=None,
+                    help="checkpoint prefix; defaults to helscurve_ for seed "
+                         "42 and helscurve<seed>_ otherwise")
+    args = ap.parse_args()
+    tag = args.tag or ("helscurve_" if args.seed == 42
+                       else "helscurve%d_" % args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    test, _, _ = split_patients(42)
+    test, _, _ = split_patients(args.seed)
     print("scoring on %d held-out Helsinki babies, never trained on\n"
           % len(test))
 
     curves = {}
     for n in SIZES:
-        path = CKPT / ("helscurve_%d.pt" % n)
+        path = CKPT / ("%s%d.pt" % (tag, n))
         if not path.exists():
             print("missing %s" % path.name)
             continue
