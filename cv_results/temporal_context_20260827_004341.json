@@ -1,0 +1,32 @@
+{
+  "baseline": {
+    "sens": 0.7831325301204819,
+    "fa_hr": 14.934592667725537
+  },
+  "context": [
+    {
+      "radius": 5,
+      "seconds_each_side": 10.0,
+      "sens": 0.5602409638554217,
+      "fa_hr": 16.284811344446002,
+      "caught": 93,
+      "events": 166
+    },
+    {
+      "radius": 15,
+      "seconds_each_side": 30.0,
+      "sens": 0.5240963855421686,
+      "fa_hr": 17.957908400382237,
+      "caught": 87,
+      "events": 166
+    },
+    {
+      "radius": 30,
+      "seconds_each_side": 60.0,
+      "sens": 0.41566265060240964,
+      "fa_hr": 17.537290308270897,
+      "caught": 69,
+      "events": 166
+    }
+  ]
+}

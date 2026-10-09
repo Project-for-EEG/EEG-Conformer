@@ -20,6 +20,7 @@ checkpoints/
 logs/
 evaluation_results/
 *.log
+*.err
 *.pt
 predictions.csv
 
@@ -44,37 +45,15 @@ AGENT_OPERATING_SYSTEM.md.txt
 run_after_retrain.sh
 
 # ---- pre-existing scripts not part of this work ----
-# superseded, or broken (load the 85 GB CSVs / the pre-fix checkpoint).
 # still present locally; kept out of the repo deliberately.
-analyze_data.py
-data_loader.py
-download_additional_data.py
-download_siena_annotations.py
+# The other old scripts once listed here were unused and have been deleted;
+# they are in git history at fa2a965.
 download_siena.ps1
-evaluate.py
-inference.py
-main.py
-optimize_sensitivity.py
-optimize_threshold.py
 preprocess_data.py
-process_siena_data.py
-quick_threshold_analysis.py
-train_improved.py
-train_streaming.py
-trainer.py
 cv_results/cv_results_2026012*.json
 comparison_done.txt
 lopo_timing.log
 dl_last.log
-
-# one-off analysis scripts and an unused harness -- kept locally, out of the repo
-# (train_lopo.py was here until leave-one-patient-out became the headline
-# result and the merge experiment; the README now tells people to run it)
-compare_operating_points.py
-compare_finetune.py
-sweep_operating_points.py
-cv_results/patient_cv_results_20260727_2107*.json
-cv_results/patient_cv_results_20260727_2301*.json
 
 # ---- SzCORE container build context ----
 # Docker cannot COPY from outside the build directory, so szcore_container/

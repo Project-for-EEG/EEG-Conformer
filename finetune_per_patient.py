@@ -289,8 +289,8 @@ def main():
     print(f"  gain  : {(agg['tuned_hit'] - agg['base_hit'])/e:+.3f}")
     print()
     print(f"cached per-patient test probabilities -> {args.cache}")
-    print("NOTE: the two arms above sit at different FA rates; run "
-          "compare_finetune.py for the matched-FA comparison.")
+    print("NOTE: the two arms above sit at different FA rates, so the gain "
+          "is not a matched-FA comparison.")
 
 
 if __name__ == "__main__":
