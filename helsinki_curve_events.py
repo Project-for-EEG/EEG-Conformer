@@ -88,6 +88,12 @@ def main():
     import argparse
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--fold", type=int, default=None)
+    ap.add_argument("--n-folds", type=int, default=4)
+    ap.add_argument("--split-seed", type=int, default=None,
+                    help="seed that chose the held-out babies; defaults to "
+                         "--seed. Must match whatever helsinki_curve.py used, "
+                         "or the models get scored on their training data.")
     ap.add_argument("--tag", default=None,
                     help="checkpoint prefix; defaults to helscurve_ for seed "
                          "42 and helscurve<seed>_ otherwise")
@@ -95,7 +101,8 @@ def main():
     tag = args.tag or ("helscurve_" if args.seed == 42
                        else "helscurve%d_" % args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    test, _, _ = split_patients(args.seed)
+    split_seed = args.seed if args.split_seed is None else args.split_seed
+    test, _, _ = split_patients(split_seed, fold=args.fold, n_folds=args.n_folds)
     print("scoring on %d held-out Helsinki babies, never trained on\n"
           % len(test))
 

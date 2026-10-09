@@ -27,11 +27,17 @@ Good sensitivity. The false-alarm rate is not good enough -- clinical use needs 
 Raw EEG recordings (`.edf`) from three hospitals, plus human annotations of when
 seizures happened.
 
-| dataset | patients | hours | who | seizures |
-|---|---|---|---|---|
-| CHB-MIT | 23 | 220 | children, Boston | 1.4% of time |
-| Siena | 14 | 142 | adults, Italy | 0.6% |
-| Helsinki | 79 | 112 | newborns, Finland | 12.4% |
+| dataset | patients | hours | who | recorded in | seizures |
+|---|---|---|---|---|---|
+| CHB-MIT | 23 | 220 | children, Boston | epilepsy monitoring unit | 1.4% of time |
+| Siena | 14 | 142 | adults, Italy | epilepsy monitoring unit | 0.6% |
+| Helsinki | 79 | 112 | newborns, Finland | neonatal intensive care | 12.4% |
+
+The cohorts differ in setting as well as age. In a monitoring unit, patients are admitted to
+record seizures that are expected, often with medication withdrawn. In a neonatal ICU,
+monitoring starts because seizures are already suspected, alongside ventilators and other
+equipment. So any difference between CHB-MIT and Helsinki is age and setting together, and
+this project cannot separate the two.
 
 CHB-MIT has 24 recording cases but 23 subjects. chb01 and chb21 are the same child,
 recorded 18 months apart. They are always held out together, so a split never puts one
@@ -203,7 +209,7 @@ changed. All are scored on *events* (seizures caught, false alarms per hour), ne
 window-level AUC, which got three of these calls backwards.
 
 **One seed, except where stated.** Only the patient-count row has been repeated at more
-than one seed, and when it was, the gain moved from +0.304 to a range of 0.03 to 0.31.
+than one seed and cross-validated, and when it was, the gain fell from +0.304 to +0.17.
 So read every other effect size here as a single draw. The nulls are the safer half of
 the table -- an effect large enough to beat that much variance would probably have shown
 up anyway -- but any single positive number could be smaller or larger than stated. The
@@ -216,10 +222,11 @@ seed changes only the initialisation and not which patients are tested.
 | **yes** | Fixed a bug in the seizure labels | biggest single change | rerun the identical pipeline before and after the fix: AUC 0.32 to 0.78 |
 | **yes** | Smoothing predictions over time | ~3x fewer false alarms | same saved predictions scored with and without smoothing |
 | **yes** | A threshold per patient | +0.139 sensitivity | swept a single global threshold over identical predictions; no setting reaches 0.886 at all |
-| **yes** | More patients *from the same cohort* | direction yes, size unclear: **+0.22 event sensitivity, range 0.03 to 0.31** across three seeds at a matched ~4.6 FA/h | 8 to 67 Helsinki training patients, three seeds. Positive in 14 of 15 budget-by-seed cells. The seed also picks the held-out babies, so each seed is a near-independent experiment on 12 infants with 158, 104 and 70 events |
+| **yes** | More patients *from the same cohort* | **+0.17 event sensitivity**, rough interval 0 to +0.33, at ~5 FA/h | 8 to 67 Helsinki training patients, 4-fold cross-validation over all 46 seizure-bearing babies, each tested once by a model that never saw it |
 | no | More patients from *other* hospitals | no reliable effect | two arms, same held-out patients, extra cohort pinned into training only. Siena: a trade. Helsinki: 0.789 to 0.813 sensitivity but 17.4 to 19.8 FA/h |
 | no | Rebalancing the classes (6 ways) | nothing | three models trained at 12% / 3.6% / 1.4% seizure on identical folds: 0.831 / 0.861 / 0.861 sensitivity, no trend |
 | no | A pretrained foundation model | worse | same folds and patients, only the architecture differs: 152 of 164 seizures against 135 of 164 |
+| no | Setting thresholds with no patient data (3 ways) | nothing -- slightly worse | same base-model predictions, every scheme read at the calibrated 5.16 FA/h: a percentile of the recording closes -7% to -59% of the 16.1-point calibration gap. The gap is patient information, not a score-scale artifact. `labelfree_calibration.txt` |
 | worse | Training on the "hard" background only | false alarms nearly doubled | 11.8 to 21.4 FA/h; the mined windows sit within a minute of a seizure 4x as often as random ones |
 
 Two guards run inside the pipeline rather than living in anyone's memory, because both
@@ -274,8 +281,10 @@ achieved rate has to be printed or the comparison cannot be checked.
 
 Three things follow.
 
-The table above is one seed. Repeating the whole curve at two more seeds shows the
-direction is solid and **the magnitude is not**:
+The table above is one seed and one held-out set of 12 babies. Three further checks show
+the direction holds, and the size is smaller and less certain than it first looked.
+
+**Three seeds.** Repeating the whole curve at seeds 43 and 44:
 
 | budget | seed 42 | seed 43 | seed 44 | mean | range |
 |---|---|---|---|---|---|
@@ -283,30 +292,43 @@ direction is solid and **the magnitude is not**:
 | <= 5 FA/h | +0.304 | +0.029 | +0.314 | +0.216 | 0.285 |
 | <= 10 FA/h | +0.165 | +0.058 | +0.314 | +0.179 | 0.257 |
 | <= 20 FA/h | +0.133 | +0.087 | +0.343 | +0.187 | 0.256 |
-| <= 40 FA/h | +0.044 | +0.096 | +0.057 | **+0.066** | **0.052** |
+| <= 40 FA/h | +0.044 | +0.096 | +0.057 | +0.066 | 0.052 |
 
-**More patients helps, and how much is not measurable here.** The gain from 8 to 67 is
-positive in 14 of 15 cells, so the direction holds. But at the headline budget the three
-seeds give +0.304, +0.029 and +0.314 -- a spread almost as wide as the effect -- and at
-the tightest budget one seed is negative. The honest figure is **+0.22 with a range of
-0.03 to 0.31**, not the +0.304 an earlier version of this file reported as a point
-estimate.
+**Most of that spread was the babies, not the model.** The seed chooses the held-out babies
+as well as the initialisation, so seeds 42 and 43 share only 3 of their 12 test babies.
+Pinning the held-out babies to seed 42's and varying only the initialisation gives +0.304,
++0.291 and +0.247 at the headline budget -- a spread of 0.057, against 0.285 when the
+babies vary too. About two-thirds of the variance was which babies happened to be tested.
+So the 12-baby test set, not the model, was the instrument that needed fixing.
 
-Two things make it this noisy, and both are the design rather than the model. The seed
-chooses the held-out babies as well as the initialisation (`helsinki_curve.py:162` passes
-it to `split_patients`), so seeds 42 and 43 share only 3 of their 12 test babies. And the
-three test sets contain 158, 104 and 70 events, so these are three small experiments
-rather than three readings of one.
+**Four-fold cross-validation.** Every one of the 46 seizure-bearing babies is now tested
+once, by a model that never saw it, with folds stratified by how many experts marked a
+seizure. The gain from 8 to 67 training babies:
 
-**The shape is better evidenced than the size.** That the benefit shrinks as the budget
-loosens is the most robust thing in the table: at 40 FA/h the mean gain is +0.066 with a
-spread of 0.052, against spreads near 0.26 everywhere tighter. More data buys progressively
-less as a detector is allowed to alarm more freely, and that holds across every seed.
+| budget | fold 0 | fold 1 | fold 2 | fold 3 | mean |
+|---|---|---|---|---|---|
+| <= 2 FA/h | +0.096 | +0.357 | +0.227 | +0.036 | +0.179 |
+| <= 5 FA/h | +0.184 | +0.217 | +0.253 | +0.018 | **+0.168** |
+| <= 10 FA/h | +0.000 | +0.062 | +0.280 | -0.018 | +0.081 |
+| <= 20 FA/h | **-0.272** | +0.054 | +0.240 | -0.006 | +0.004 |
+| <= 40 FA/h | +0.044 | -0.023 | +0.160 | +0.136 | +0.079 |
 
-**It is still climbing at 67** in each seed taken alone, and the curve is monotonic in
-training size for seed 42. No ceiling is visible, so the 23 subjects of CHB-MIT are the
-shallow end of this curve rather than most of it -- though with this much seed variance,
-"still climbing" is a direction and not a slope.
+Some cells in the 2 and 40 FA/h rows compare achieved rates more than 25% apart; read those
+rows as approximate.
+
+**More patients helps, by about 0.17, and the size is not pinned down.** At the headline
+budget the folds give +0.18, +0.22, +0.25 and +0.02, standard deviation 0.10. Four folds
+share training data, so an interval is only rough, but it runs from about 0 to +0.33. The
+effect is probably real. It is smaller than the +0.304 first reported, which came from a
+split drawn entirely from babies all three experts agreed on.
+
+**The shape claim did not survive.** An earlier version of this file said the benefit
+shrinks as the alarm budget loosens, and called that the most robust thing in the table.
+Across folds it is not: at 20 FA/h fold 0 loses 0.272 while fold 2 gains 0.240. The
+pattern belonged to one split.
+
+**"Still climbing at 67" is now a weak claim.** Three folds gain at the headline budget;
+fold 3 gains 0.018. No ceiling is visible, but neither is a clear slope.
 
 **An earlier version of this table was wrong, and the error was a measurement artifact.**
 It swept 50 thresholds, which left the 8-patient model with no operating point between
@@ -315,10 +337,56 @@ It swept 50 thresholds, which left the 8-patient model with no operating point b
 against 8.2, and the 40 FA/h cell was reported as -0.006 while comparing 30.7 FA/h
 against 22.7. The sweep now draws 600 thresholds from the data, every cell prints its
 achieved rate, and the script flags any comparison whose rates differ by more than 25%.
-The headline was overstated 2.5x; the shape of the curve was not.
+That correction took the headline from +0.405 to +0.304; cross-validation has since taken
+it to +0.17.
 
 Subsets are nested and the seizure-bearing to background-only mix is held constant, so the
 curve measures adding patients rather than resampling them.
+
+## How many false alarms do the experts make?
+
+Helsinki was scored by three experts independently, which allows a question the other
+cohorts cannot answer: how a human does under the same scoring rules. Each expert is
+scored against the other two agreeing, with SzCORE event rules at one-second resolution.
+
+On the 46 seizure-bearing babies, so that the detector can be scored on exactly the same
+recordings by the fold models that never saw them (`human_vs_model.txt`):
+
+| | sensitivity | false alarms/day |
+|---|---|---|
+| expert A | 0.865 | 18.8 |
+| expert B | 0.912 | 38.4 |
+| expert C | 0.934 | 33.2 |
+| detector, at expert A's sensitivity | 0.867 | 133.8 |
+| detector, best it reaches | 0.901 | 145.7 |
+| detector, at ~25 false alarms/day | 0.402 | 23.3 |
+
+**Two things follow, and they point in opposite directions.**
+
+**The 1-2 per day target is the wrong yardstick for newborns.** Experts reading these
+babies against each other make 19 to 38 false alarms a day. A detector cannot be expected
+to beat the people who wrote its labels.
+
+**But the detector is well short of the experts.** Matching the weakest expert's
+sensitivity costs it seven times her false-alarm rate, and it never reaches the other two
+at any rate. At the experts' alarm rate it catches 0.40 of seizures against their 0.87 to
+0.93.
+
+Over all 79 babies the experts make 12 to 26 false alarms a day (`human_ceiling.txt`);
+restricting to seizure-bearing babies raises the rate because the 33 background-only
+recordings, where experts rarely mark anything, drop out of the denominator. The
+sensitivities are identical in both, which is a check that the two scripts score alike.
+
+This is Helsinki only. CHB-MIT and Siena each ship one reader's annotations, so there is no
+equivalent there, and **the CHB-MIT headline of 124 false alarms/day must not be compared
+with these figures** -- children in an epilepsy monitoring unit and newborns in a NICU are
+different populations recorded in different settings.
+
+That experts disagree is not new: Stevenson et al. (2015) measured it on this corpus and
+Ansari et al. (2018) weighed detector errors against it. What is measured here is the
+human false-alarm rate under the same event rules this project's detector is held to. One
+discrepancy is unresolved: the annotation files give 40 babies whose seizures all three
+experts marked, where the dataset paper (Stevenson et al. 2019) reports 39.
 
 ## One detector per population
 
@@ -426,8 +494,9 @@ is described above.
 
 ## What is left
 
-Sixteen interventions, twelve of them null or negative, is enough to say the easy
-directions are exhausted. What remains:
+Seventeen attempts in the results table -- counting each rebalancing and calibration scheme
+and each added cohort separately -- and thirteen of them null or negative, is enough to say
+the easy directions are exhausted. What remains:
 
 **More patients from the same cohort.** The only lever still climbing, and the only one
 with a measured curve. CHB-MIT is out of patients at 23, so this needs data we do not

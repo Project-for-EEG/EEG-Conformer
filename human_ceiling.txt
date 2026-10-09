@@ -1,0 +1,16 @@
+held-out A  ref=both    n_ref_events= 474  sens=0.865  FA=  56  FA/day= 12.01  hours=111.9
+held-out A  ref=either  n_ref_events= 644  sens=0.685  FA=   8  FA/day=  1.72  hours=111.9
+held-out B  ref=both    n_ref_events= 421  sens=0.912  FA= 113  FA/day= 24.24  hours=111.9
+held-out B  ref=either  n_ref_events= 629  sens=0.817  FA=  55  FA/day= 11.80  hours=111.9
+held-out C  ref=both    n_ref_events= 408  sens=0.934  FA= 122  FA/day= 26.17  hours=111.9
+held-out C  ref=either  n_ref_events= 566  sens=0.800  FA=  47  FA/day= 10.08  hours=111.9
+
+held-out A  ref=majority-of-3 (INFLATED, annotator is in ref)  sens=0.882  FA/day=  1.72  n_ref=542
+held-out B  ref=majority-of-3 (INFLATED, annotator is in ref)  sens=0.932  FA/day= 12.01  n_ref=542
+held-out C  ref=majority-of-3 (INFLATED, annotator is in ref)  sens=0.950  FA/day= 10.30  n_ref=542
+
+A as detector vs B as reference: sens=0.755 FA/day=  7.08 n_ref=522
+A as detector vs C as reference: sens=0.768 FA/day=  6.22 n_ref=598
+B as detector vs C as reference: sens=0.813 FA/day= 15.87 n_ref=598
+
+patients where annotators disagree on seizure-positive at all: 17 of 79

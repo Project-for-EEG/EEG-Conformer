@@ -1,0 +1,26 @@
+humans against the detector, Helsinki, same babies, same scoring
+46 babies (every seizure-bearing baby, each scored by the fold model that
+never saw it), 68.8 h. SzCORE event rules at 1 s resolution.
+
+HUMANS -- each expert scored against the other two agreeing
+  expert A vs B&C   sensitivity 0.865     18.8 false alarms/day
+  expert B vs A&C   sensitivity 0.912     38.4 false alarms/day
+  expert C vs A&B   sensitivity 0.934     33.2 false alarms/day
+
+DETECTOR -- the fold models, scored against each expert pair and averaged
+  262 operating points survive the flagged-time bound
+  <=   2 FA/day   sensitivity 0.280   (achieved    1.7 FA/day)
+  <=   5 FA/day   sensitivity 0.320   (achieved    4.3 FA/day)
+  <=  10 FA/day   sensitivity 0.347   (achieved    9.9 FA/day)
+  <=  25 FA/day   sensitivity 0.402   (achieved   23.3 FA/day)
+  <=  50 FA/day   sensitivity 0.488   (achieved   47.8 FA/day)
+  <= 100 FA/day   sensitivity 0.740   (achieved   99.8 FA/day)
+  <= 250 FA/day   sensitivity 0.901   (achieved  145.7 FA/day)
+
+THE COMPARISON -- what the detector needs to match each human's sensitivity
+  expert A: 0.865 at  18.8 FA/day | detector reaches 0.867 at  133.8 FA/day (7x)
+  expert B: 0.912 at  38.4 FA/day | detector NEVER reaches it -- best 0.901 at 145.7 FA/day
+  expert C: 0.934 at  33.2 FA/day | detector NEVER reaches it -- best 0.901 at 145.7 FA/day
+
+Restricted to babies the model was never trained on. The human figures here
+are therefore on 46 babies, not the 79 in human_ceiling.py, and will differ.

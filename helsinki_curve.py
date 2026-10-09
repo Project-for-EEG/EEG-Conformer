@@ -64,25 +64,107 @@ CKPT = Path("checkpoints")
 N_TEST = 12
 
 
-def split_patients(seed=42):
-    """(test, pool_with_seizures, pool_background_only), disjoint."""
-    patients = get_patient_list(ROOT)
+def seizure_bearing(root=None):
+    """(babies with majority-vote seizures, babies without), both sorted.
+
+    A baby with no majority-vote seizure cannot be scored for sensitivity --
+    there is nothing to catch -- so it can only ever be training background.
+    Of the 33 such babies, 10 have a seizure that exactly one of the three
+    experts marked; one expert of three is not a majority, so those seizures
+    are labelled background here. That is a real limitation of the majority
+    rule and not something a split can fix.
+    """
+    root = root or ROOT
     with_sz, without = [], []
-    for p in patients:
+    for p in get_patient_list(root):
         total = 0
-        for f in sorted((ROOT / p).glob("*.npz")):
+        for f in sorted((root / p).glob("*.npz")):
             with np.load(f) as d:
                 total += int(d["labels"].sum())
         (with_sz if total > 0 else without).append(p)
+    return sorted(with_sz), sorted(without)
 
+
+def reviewer_counts(path="additional_data/helsinki/clinical_information.csv"):
+    """{baby: how many of the three experts marked any seizure}, or {}.
+
+    Used only to stratify the folds. All 12 babies in the original fixed test
+    set were ones all three experts agreed on, so performance on that split
+    described the unambiguous end of the label distribution. Spreading the
+    6 testable two-expert babies evenly keeps the folds comparable instead of
+    putting all the ambiguity in one of them.
+    """
+    import csv
+    f = Path(path)
+    if not f.exists():
+        return {}
+    rows = list(csv.DictReader(f.open(encoding="utf-8-sig")))
+    if not rows:
+        return {}
+    key = next((k for k in rows[0] if "Reviewer" in k), None)
+    idk = list(rows[0])[0]
+    out = {}
+    for r in rows:
+        try:
+            out["HEL%02d" % int(str(r[idk]).strip())] = int(str(r[key]).strip())
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def cv_folds(n_folds=4, seed=42, root=None):
+    """[[babies], ...] partitioning every scorable baby into n_folds groups.
+
+    A partition, not n_folds random draws: each baby is in exactly one test
+    fold, so every baby is scored exactly once by a model that never saw it.
+    The fixed 12-baby split this replaces was the limiting instrument -- the
+    8-to-67 gain moved 0.285 across three draws of it while moving only 0.057
+    when the babies were held fixed and only the initialisation varied.
+
+    Folds are stratified by reviewer count, so label certainty is spread
+    rather than concentrated.
+    """
+    with_sz, _ = seizure_bearing(root)
+    nrev = reviewer_counts()
     rng = np.random.RandomState(seed)
-    order = list(with_sz)
-    rng.shuffle(order)
-    test = sorted(order[:N_TEST])
-    pool_sz = sorted(order[N_TEST:])
+    folds = [[] for _ in range(n_folds)]
+    # deal each certainty stratum round-robin, so fold sizes stay within one
+    for level in sorted({nrev.get(p, -1) for p in with_sz}, reverse=True):
+        group = [p for p in with_sz if nrev.get(p, -1) == level]
+        rng.shuffle(group)
+        for i, baby in enumerate(group):
+            folds[i % n_folds].append(baby)
+    return [sorted(f) for f in folds]
+
+
+def split_patients(seed=42, fold=None, n_folds=4):
+    """(test, pool_with_seizures, pool_background_only), disjoint.
+
+    With fold=None this keeps the original behaviour: a random N_TEST babies
+    held out, which is what every published number in this project used.
+    With fold=k it returns the k-th cross-validation fold instead.
+    """
+    with_sz, without = seizure_bearing()
+
+    if fold is not None:
+        folds = cv_folds(n_folds, seed)
+        test = folds[fold]
+        pool_sz = sorted(p for p in with_sz if p not in set(test))
+    else:
+        rng = np.random.RandomState(seed)
+        order = list(with_sz)
+        rng.shuffle(order)
+        test = sorted(order[:N_TEST])
+        pool_sz = sorted(order[N_TEST:])
+
+    # The guard exists because this project has already shipped a silently
+    # wrong answer from a train/test mix-up elsewhere. Cheap to assert.
+    overlap = set(test) & set(pool_sz)
+    if overlap:
+        raise AssertionError("test and training pool overlap: %s" % sorted(overlap))
 
     order_bg = list(without)
-    rng.shuffle(order_bg)
+    np.random.RandomState(seed).shuffle(order_bg)
     return test, pool_sz, order_bg
 
 
@@ -151,6 +233,18 @@ def main():
     ap.add_argument("--epochs", type=int, default=15)
     ap.add_argument("--max-segments", type=int, default=500)
     ap.add_argument("--seed", type=int, default=42)
+    # --seed alone moves the held-out babies AND the initialisation together,
+    # which is why repeating the curve at three seeds gave a spread of 0.285:
+    # seeds 42 and 43 share only 3 of their 12 test babies, and their test sets
+    # hold 158 and 104 events. Pinning --split-seed separates the two, so the
+    # variance can be attributed to patient sampling or to training.
+    ap.add_argument("--fold", type=int, default=None,
+                    help="cross-validation fold to hold out, 0-based. Omit "
+                         "for the original single random split.")
+    ap.add_argument("--n-folds", type=int, default=4)
+    ap.add_argument("--split-seed", type=int, default=None,
+                    help="seed for choosing the held-out babies; defaults to "
+                         "--seed. Pin it to vary only the initialisation.")
     ap.add_argument("--tag", default="helscurve_")
     args = ap.parse_args()
 
@@ -159,7 +253,11 @@ def main():
     config = get_config()
     config.model.num_channels = 20
 
-    test, pool_sz, pool_bg = split_patients(args.seed)
+    split_seed = args.seed if args.split_seed is None else args.split_seed
+    test, pool_sz, pool_bg = split_patients(split_seed, fold=args.fold, n_folds=args.n_folds)
+    if split_seed != args.seed:
+        print("split seed %d (held-out babies), training seed %d"
+              % (split_seed, args.seed))
     print("Helsinki only. %d babies with seizures, %d without."
           % (len(pool_sz) + N_TEST, len(pool_bg)))
     print("fixed test set, never trained on: %s" % ", ".join(test))

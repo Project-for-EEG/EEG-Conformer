@@ -1,0 +1,27 @@
+label-free calibration: is the 16-point gap scale or patient knowledge?
+predictions endtoend_uncalibrated.npz, base models only, no personalisation
+
+CALIBRATED   per-patient threshold from the patient's own recording
+  sensitivity 0.9405 (158 of 168)  5.16 FA/h  123.8 FA/day  F1 0.2622
+UNCALIBRATED one threshold from the training fold, nothing of theirs
+  sensitivity 0.7798 (131 of 168)  5.47 FA/h  131.2 FA/day  F1 0.2130
+
+the gap to close: +0.1607 pooled event sensitivity
+every scheme below is read at 5.16 FA/h, the calibrated rate, so the
+only difference is where the threshold came from
+
+scheme           sens      FA/h        F1      prec    closed percentile
+per_file       0.6845      5.01    0.2023     0.119      -59%      91.00
+causal         0.7619      5.02    0.2224     0.130      -11%      90.00
+expanding      0.7679      5.04    0.2232     0.131       -7%      90.00
+
+BEST LABEL-FREE SCHEME: expanding at the 90.00-th percentile
+  closes -7% of the 0.161 gap, reaching 0.7679 against the
+  calibrated 0.9405 and the uncalibrated 0.7798, all at <= 5.16 FA/h
+
+READ: the gap is not mainly a scale artifact. Per-patient
+calibration is doing something a percentile cannot imitate, so
+the 16 points are the price of not having the patient's data.
+
+'per_file' uses the whole recording and is therefore an upper bound,
+not deployable. 'causal' and 'expanding' only look backwards and are.
