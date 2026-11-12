@@ -1,0 +1,40 @@
+Where these scripts came from
+=============================
+
+These scripts were written in temporary session folders between
+4 and 9 November 2026 and were never in the repo before.
+They are copied here unchanged, so they still name their old
+Temp paths.
+
+Folder   Original Temp folder (under C:\Users\user\AppData\Local\Temp\claude\36c1f29744f93fe6)
+------   -----------------------------------------------------------------------------------
+trees    b3889703-629c-4c5a-b583-69f722743ff4\scratchpad\trees
+clean    c7848ca6-bfef-414b-a321-d6686c1a43f8\scratchpad\clean
+pilot    f241281f-add4-41ac-9210-f47dab0b83b0\scratchpad (top-level .py only)
+
+What each folder holds
+----------------------
+trees   The tree models (Tamp, Tfree, Tall): features from the raw
+        EDF (trees_features.py), training and thresholds
+        (trees_train.py), and scoring (trees_score.py). verify\
+        holds the independent checks.
+clean   The clean comparison under clean_rule.txt v2: Trel features
+        (rel_feats.py), trees (trees_train.py), N1 inference
+        (net_infer.py), scoring (clean_score.py) and checks
+        (check_n1.py, check_c3.py, test_compare.py). review\,
+        verify\ and verify2\ hold the independent checks.
+pilot   The A0 network inference that built pilot_cache and
+        pilot_cache2, which the tree code reads (pilot_infer.py,
+        replicate_infer.py), plus the other pilot scripts.
+
+N1 itself was trained with train_lopo.py --no-early-stop --tag fixed15.
+
+What is not here
+----------------
+Feature caches, predictions, logs, rules and result tables are not
+committed. A full copy of all three folders, including the pilot
+caches, is in C:\EEG_archive\2026-11-12 with the same layout.
+MANIFEST.sha256 there lists a SHA-256 for every file.
+
+To run a script from the archive, replace the Temp prefix above
+with C:\EEG_archive\2026-11-12 in its paths.

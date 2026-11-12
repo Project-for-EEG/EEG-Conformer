@@ -91,7 +91,12 @@ def main():
     ap.add_argument("--drop-channels", type=int, nargs="*", default=None,
                     help="channel indices to drop, e.g. 19 20 21 for the "
                          "FT9/FT10 derivations Siena cannot reconstruct")
+    ap.add_argument("--no-early-stop", action="store_true",
+                    help="train every fold for all --epochs rounds and keep the "
+                         "last one; the held-out patient is only scored, never "
+                         "used to decide when to stop")
     args = ap.parse_args()
+    early_stop = not args.no_early_stop
 
     set_seed(42)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -129,7 +134,8 @@ def main():
         if len(g) > 1:
             print(f"  {' + '.join(g)} held out together (same subject)")
     print(f"epochs {args.epochs} | max-segments {args.max_segments} | "
-          f"batch {config.training.batch_size} | device {device}\n")
+          f"batch {config.training.batch_size} | early stop {early_stop} | "
+          f"device {device}\n")
 
     results = []
     for i, held in enumerate(groups):
@@ -155,6 +161,11 @@ def main():
             if cached_train is not None and cached_train != want_train:
                 mismatch.append("training cases %s vs %s"
                                 % (cached_train, want_train))
+            if ck.get("early_stop", True) != early_stop:
+                mismatch.append("early stop %s vs %s"
+                                % (ck.get("early_stop", True), early_stop))
+            if ck.get("epochs") is not None and ck["epochs"] != args.epochs:
+                mismatch.append("epochs %s vs %s" % (ck["epochs"], args.epochs))
             if mismatch:
                 raise SystemExit(
                     "%s was written by a different run (%s). Use a new --tag "
@@ -214,7 +225,8 @@ def main():
 
         model = create_model(config.model).to(device)
         metrics, _, _ = train_one_fold(model, train_loader, val_loader,
-                                       config, device, i, args.epochs)
+                                       config, device, i, args.epochs,
+                                       early_stop=early_stop)
 
         torch.save({"held_out": held, "model_state_dict": model.state_dict(),
                     "model_config": asdict(config.model),
@@ -223,7 +235,8 @@ def main():
                     "n_train_cases": len(train_cases),
                     "drop_channels": args.drop_channels,
                     "always_train": always_train,
-                    "n_val_seizure": n_val_seizure}, out)
+                    "n_val_seizure": n_val_seizure,
+                    "early_stop": early_stop, "epochs": args.epochs}, out)
 
         results.append(metrics | {"held_out": held})
         print(f"    AUC {metrics.get('auc', float('nan')):.4f} | "

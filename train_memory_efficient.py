@@ -253,7 +253,8 @@ def train_one_fold(
     config,
     device: torch.device,
     fold: int,
-    epochs: int
+    epochs: int,
+    early_stop: bool = True,
 ) -> Tuple[Dict, np.ndarray, np.ndarray]:
     """Train for one fold"""
     
@@ -316,12 +317,12 @@ def train_one_fold(
         else:
             patience_counter += 1
         
-        if patience_counter >= config.training.patience:
+        if early_stop and patience_counter >= config.training.patience:
             print(f"  Early stopping at epoch {epoch+1}")
             break
     
     # Load best model
-    if best_model_state:
+    if early_stop and best_model_state:
         model.load_state_dict(best_model_state)
     
     # Final validation
