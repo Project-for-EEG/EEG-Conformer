@@ -12,7 +12,7 @@
 # file -- a truncated download keeps a valid header, and MNE reads it without
 # complaint as a shorter recording.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 echo "waiting for downloads to complete"
 while :; do

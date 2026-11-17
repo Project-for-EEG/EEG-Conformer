@@ -17,7 +17,7 @@
 # 14.42 FA/h, which used the same folds, seed, epochs and segment cap. Only the
 # training set differs.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 SIENA="PN00 PN01 PN03 PN05 PN06 PN07 PN09 PN10 PN11 PN12 PN13 PN14 PN16 PN17"
 

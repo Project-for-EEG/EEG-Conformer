@@ -19,7 +19,7 @@
 #
 # Seed 42 is already done for both, so only 7 and 13 are run here.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 for seed in 7 13; do
     for chans in 23 20; do

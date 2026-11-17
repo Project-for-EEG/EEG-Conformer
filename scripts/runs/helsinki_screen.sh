@@ -18,7 +18,7 @@
 # than AUC is the correction to how the channel decision was mishandled --
 # AUC called that one backwards twice.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 HELS=$(cat helsinki_patients.txt)
 COMMON="--folds 3 --epochs 15 --max-segments 2000 --balance none --drop-channels 19 20 21"

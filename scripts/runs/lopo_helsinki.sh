@@ -19,7 +19,7 @@
 # result against the published 2000-segment number would confound the cohort
 # with the cap.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 HELS=$(cat helsinki_patients.txt)
 COMMON="--epochs 15 --max-segments 500 --drop-channels 19 20 21"

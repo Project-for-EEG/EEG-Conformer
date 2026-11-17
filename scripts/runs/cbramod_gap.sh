@@ -19,7 +19,7 @@
 # 256 Hz z-scored. Feeding either model the other's format is silently wrong
 # rather than an error, which is why --data-root is explicit.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 echo "waiting for Arm C to finish its evaluation"
 while [ ! -f endtoend_armC.npz ]; do sleep 300; done

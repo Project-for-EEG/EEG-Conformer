@@ -22,7 +22,7 @@
 # resume into a checkpoint written with a different channel count or training
 # set size, so a stale cache cannot quietly answer the wrong question.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 SIENA="PN00 PN01 PN03 PN05 PN06 PN07 PN09 PN10 PN11 PN12 PN13 PN14 PN16 PN17"
 COMMON="--drop-channels 19 20 21 --epochs 15 --max-segments 2000"

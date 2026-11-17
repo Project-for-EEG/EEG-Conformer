@@ -16,7 +16,7 @@
 # complaint as a shorter recording, so completeness is checked afterwards
 # rather than assumed.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 OUT=additional_data/helsinki
 API=https://zenodo.org/api/records/4940267
