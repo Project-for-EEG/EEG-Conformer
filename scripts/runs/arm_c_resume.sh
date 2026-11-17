@@ -6,7 +6,7 @@
 # and refuses to reuse one written with a different channel count or training
 # set size, so resuming picks up the 14 completed folds and recomputes nothing.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 SIENA="PN00 PN01 PN03 PN05 PN06 PN07 PN09 PN10 PN11 PN12 PN13 PN14 PN16 PN17"
 

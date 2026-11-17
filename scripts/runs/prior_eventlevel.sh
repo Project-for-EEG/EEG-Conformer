@@ -21,7 +21,7 @@
 #
 # No retraining: these checkpoints already exist.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 for tag in prior12 prior036 natural; do
     echo "=== $tag"

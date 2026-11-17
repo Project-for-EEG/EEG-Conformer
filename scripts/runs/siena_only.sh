@@ -21,7 +21,7 @@
 # one is spent on adaptation. They are skipped, as CHB03 and CHB05 are on
 # CHB-MIT.
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/../.."
 
 python -u train_lopo.py --epochs 15 --max-segments 2000 --tag sienaonly_ \
     --data-dirs preprocessed_data_siena23 \

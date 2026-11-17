@@ -5,7 +5,7 @@ no test patient is in the training set, but each patient's alarm threshold is se
 their own earlier recording.
 
 **94% of seizures found, 5.2 false alarms per hour (124 per day)**, over 170 hours of
-held-out recording. Pooled event sensitivity, SzCORE rules, `szcore_official.txt`.
+held-out recording. Pooled event sensitivity, SzCORE rules, `cv_results/szcore_official.txt`.
 
 That number is **patient-calibrated, not patient-independent.** Every patient's
 threshold is picked from their own earlier recording, their own first-seizure labels
@@ -15,7 +15,7 @@ own earlier seizures.
 With none of that -- threshold from the training-fold patients only, base model
 throughout, no test-patient labels read anywhere -- the same models on the same windows
 give **78% at 5.5 false alarms per hour (131 per day)**, in
-`szcore_lopo_uncalibrated.txt`.
+`cv_results/szcore_lopo_uncalibrated.txt`.
 
 Good sensitivity. The false-alarm rate is not good enough -- clinical use needs under
 1 per hour.
@@ -95,7 +95,7 @@ CHB09    3 seizures, 3 found,  0.0 false alarms/hour
 CHB13   11 seizures, 11 found, 35.1 false alarms/hour
 ```
 
-Those two rows are the strict scorer, from `szcore_lopo.txt`. Under SzCORE rules the same
+Those two rows are the strict scorer, from `cv_results/szcore_lopo.txt`. Under SzCORE rules the same
 predictions give CHB13 7.7 false alarms/hour.
 
 Pooled: how many seizures caught, and how often it cried wolf.
@@ -182,8 +182,8 @@ supports, nothing more.
 | 5 / day | 8.3% | 17.3% |
 | 10 / day | 21.4% | 19.1% |
 
-Pooled. Per-subject rows are in `szcore_official.txt` and
-`szcore_lopo_uncalibrated.txt`.
+Pooled. Per-subject rows are in `cv_results/szcore_official.txt` and
+`cv_results/szcore_lopo_uncalibrated.txt`.
 
 ### How this compares
 
@@ -226,7 +226,7 @@ seed changes only the initialisation and not which patients are tested.
 | no | More patients from *other* hospitals | no reliable effect | two arms, same held-out patients, extra cohort pinned into training only. Siena: a trade. Helsinki: 0.789 to 0.813 sensitivity but 17.4 to 19.8 FA/h |
 | no | Rebalancing the classes (6 ways) | nothing | three models trained at 12% / 3.6% / 1.4% seizure on identical folds: 0.831 / 0.861 / 0.861 sensitivity, no trend |
 | no | A pretrained foundation model | worse | same folds and patients, only the architecture differs: 152 of 164 seizures against 135 of 164 |
-| no | Setting thresholds with no patient data (3 ways) | nothing -- slightly worse | same base-model predictions, every scheme read at the calibrated 5.16 FA/h: a percentile of the recording closes -7% to -59% of the 16.1-point calibration gap. The gap is patient information, not a score-scale artifact. `labelfree_calibration.txt` |
+| no | Setting thresholds with no patient data (3 ways) | nothing -- slightly worse | same base-model predictions, every scheme read at the calibrated 5.16 FA/h: a percentile of the recording closes -7% to -59% of the 16.1-point calibration gap. The gap is patient information, not a score-scale artifact. `cv_results/labelfree_calibration.txt` |
 | worse | Training on the "hard" background only | false alarms nearly doubled | 11.8 to 21.4 FA/h; the mined windows sit within a minute of a seizure 4x as often as random ones |
 
 Two guards run inside the pipeline rather than living in anyone's memory, because both
@@ -350,7 +350,7 @@ cohorts cannot answer: how a human does under the same scoring rules. Each exper
 scored against the other two agreeing, with SzCORE event rules at one-second resolution.
 
 On the 46 seizure-bearing babies, so that the detector can be scored on exactly the same
-recordings by the fold models that never saw them (`human_vs_model.txt`):
+recordings by the fold models that never saw them (`cv_results/human_vs_model.txt`):
 
 | | sensitivity | false alarms/day |
 |---|---|---|
@@ -372,7 +372,7 @@ sensitivity costs it seven times her false-alarm rate, and it never reaches the 
 at any rate. At the experts' alarm rate it catches 0.40 of seizures against their 0.87 to
 0.93.
 
-Over all 79 babies the experts make 12 to 26 false alarms a day (`human_ceiling.txt`);
+Over all 79 babies the experts make 12 to 26 false alarms a day (`cv_results/human_ceiling.txt`);
 restricting to seizure-bearing babies raises the rate because the 33 background-only
 recordings, where experts rarely mark anything, drop out of the denominator. The
 sensitivities are identical in both, which is a check that the two scripts score alike.
@@ -528,7 +528,7 @@ architecture, and the remaining data lever requires patients nobody here has.
 - **Test-patient labels are read for all 24 cases**, not only the 5. The decision whether
   to personalise is made by checking the base model against that patient's own first
   seizure. Removing it costs 16.1 points of pooled sensitivity, measured in
-  `szcore_lopo_uncalibrated.txt`.
+  `cv_results/szcore_lopo_uncalibrated.txt`.
 - **Per-patient thresholds need a seizure-free baseline**, which recordings started for
   suspected seizures often do not have. The method's second-biggest win is unavailable on
   Helsinki.
