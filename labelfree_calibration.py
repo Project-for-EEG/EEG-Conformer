@@ -44,7 +44,7 @@ HOW THEY ARE COMPARED
 
 Usage:
     python labelfree_calibration.py
-    python labelfree_calibration.py --target-fa 5.16 --out labelfree.txt
+    python labelfree_calibration.py --target-fa 5.16 --out cv_results/labelfree_calibration.txt
 
 Needs `pip install timescoring`.
 """
@@ -60,7 +60,7 @@ from evaluate_temporal import find_runs, smooth, SECONDS_PER_WINDOW
 MASK_FS = 1.0 / SECONDS_PER_WINDOW
 WINDOWS_PER_HOUR = int(3600 / SECONDS_PER_WINDOW)
 
-# Matches score_szcore.py and the committed szcore_lopo.txt.
+# Matches score_szcore.py and the committed cv_results/szcore_lopo.txt.
 SMOOTH_K = 5
 MIN_CONSEC = 3
 

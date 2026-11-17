@@ -33,7 +33,7 @@ sensitivity the humans actually achieve.
 
 Usage:
     python human_vs_model.py
-    python human_vs_model.py --out human_vs_model.txt
+    python human_vs_model.py --out cv_results/human_vs_model.txt
 """
 import argparse
 import csv

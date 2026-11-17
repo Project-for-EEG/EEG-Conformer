@@ -39,7 +39,7 @@ THE BUDGET ROWS ARE AN ORACLE AND ARE LABELLED AS SUCH
 
 Usage:
     python score_official.py --cache endtoend_lopo.npz
-    python score_official.py --cache endtoend_lopo.npz --out szcore_official.txt
+    python score_official.py --cache endtoend_lopo.npz --out cv_results/szcore_official.txt
 """
 import argparse
 import sys
